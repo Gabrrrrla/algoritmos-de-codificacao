@@ -17,6 +17,7 @@ import sys
 import tkinter as tk
 from io import StringIO
 from dataclasses import replace
+from src.utils.huffman_input_parser import parse_huffman_decode_input
 from src.utils.input_parser import (
     parse_integer_algorithm_input,
     format_ascii_mapping,
@@ -50,7 +51,7 @@ class EncoderApp(customtkinter.CTk):
         self.operation           = tk.StringVar(value="encode")
         self.golomb_m            = tk.StringVar(value="4")
         self._placeholder_active = False
-        self._HUFFMAN_PLACEHOLDER = "101001 a:1 b:01 c:00"
+        self._HUFFMAN_PLACEHOLDER = "1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
 
         # grid: sidebar (col 0) | center (col 1, expands)
         self.grid_columnconfigure(1, weight=1)
@@ -180,8 +181,10 @@ class EncoderApp(customtkinter.CTk):
         self._input_box.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 0))
 
         # Bind focus events for placeholder simulation
-        self._input_box._textbox.bind("<FocusIn>",  self._on_input_focus_in)
-        self._input_box._textbox.bind("<FocusOut>", self._on_input_focus_out)
+        self._input_box._textbox.bind("<FocusIn>", self._on_input_focus_in, add="+")
+        self._input_box._textbox.bind("<FocusOut>", self._on_input_focus_out, add="+")
+        self._input_box._textbox.bind("<Button-1>", self._on_input_focus_in, add="+")
+        self._input_box._textbox.bind("<KeyPress>", self._on_input_key_press, add="+")
 
         # ── row 4: submit button (col 0) + error injection (col 1) ────
 
@@ -260,19 +263,27 @@ class EncoderApp(customtkinter.CTk):
 
         self._clear_output()
         self._clear_error()
-        self._remove_placeholder()
+
+        self._placeholder_active = False
         self._input_box.delete("1.0", "end")
+        self._input_box.configure(text_color=("gray10", "gray90"))
+
         self._update_placeholder()
 
     def _on_operation_change(self):
         """Clear input whenever the user switches encode ↔ decode."""
-        self._remove_placeholder()
+        self._placeholder_active = False
         self._input_box.delete("1.0", "end")
+        self._input_box.configure(text_color=("gray10", "gray90"))
+
+        self._clear_output()
         self._clear_error()
+
         if self.operation.get() == "encode":
             self._error_injection_frame.grid()
         else:
             self._error_injection_frame.grid_remove()
+
         self._update_placeholder()
 
     def _change_scaling(self, value: str):
@@ -295,21 +306,54 @@ class EncoderApp(customtkinter.CTk):
     # ─────────────── placeholder helpers ─────────────────────────────
 
     def _needs_placeholder(self) -> bool:
-        return (
-            self.selected_algo.get() == "Huffman"
-            and self.operation.get() == "decode"
-        )
+        # Todos os modos devem ter placeholder, inclusive Huffman + Decodificar.
+        return True
+
+    def _get_placeholder_text(self) -> str:
+        algo = self.selected_algo.get()
+        mode = self.operation.get()
+
+        if mode == "encode":
+            if algo == "Huffman":
+                return "Digite o texto a codificar. Exemplo: Água!"
+
+            return (
+                "Digite números, texto ou símbolos separados por espaço/vírgula.\n"
+                "Exemplo: 1 2 a b"
+            )
+
+        if mode == "decode":
+            if algo == "Huffman":
+                return (
+                    "Digite o código binário seguido da tabela Huffman.\n"
+                    "Exemplo: 1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
+                )
+
+            return "Digite o código binário a decodificar. Exemplo: 001010111"
+
+        return ""
 
     def _update_placeholder(self):
         """Show placeholder if the input box is empty and conditions are met."""
-        if self._needs_placeholder():
-            content = self._input_box.get("1.0", "end").strip()
-            if not content:
-                self._show_placeholder()
+        if not self._needs_placeholder():
+            return
+
+        content = self._input_box.get("1.0", "end").strip()
+
+        if not content:
+            self._show_placeholder()
 
     def _show_placeholder(self):
+        if not self._needs_placeholder():
+            return
+
+        placeholder = self._get_placeholder_text()
+
+        if not placeholder:
+            return
+
         self._input_box.delete("1.0", "end")
-        self._input_box.insert("1.0", self._HUFFMAN_PLACEHOLDER)
+        self._input_box.insert("1.0", placeholder)
         self._input_box.configure(text_color="gray50")
         self._placeholder_active = True
 
@@ -323,8 +367,13 @@ class EncoderApp(customtkinter.CTk):
         if self._placeholder_active:
             self._remove_placeholder()
 
+    def _on_input_key_press(self, _event=None):
+        if self._placeholder_active:
+            self._remove_placeholder()
+
     def _on_input_focus_out(self, _event=None):
         content = self._input_box.get("1.0", "end").strip()
+
         if not content and self._needs_placeholder():
             self._show_placeholder()
 
@@ -332,8 +381,9 @@ class EncoderApp(customtkinter.CTk):
         """Return input text, treating active placeholder as empty."""
         if self._placeholder_active:
             return ""
-        return self._input_box.get("1.0", "end").strip()
 
+        return self._input_box.get("1.0", "end").strip()
+    
     # ─────────────────────────── submit ──────────────────────────────
 
     def _submit(self):
@@ -437,34 +487,18 @@ class EncoderApp(customtkinter.CTk):
 
     def _run_decode(self, algo: str, raw: str):
         if algo == "Huffman":
-            parts = raw.split(None, 1)
-            binary = parts[0]
-            codes: dict[str, str] = {}
+            binary, codes = parse_huffman_decode_input(raw)
 
-            if len(parts) == 2:
-                for pair in parts[1].split():
-                    if ":" in pair:
-                        ch, code = pair.split(":", 1)
-                        codes[ch] = code
-
-            if not codes:
-                raise ValueError(
-                    "Para decodificar Huffman informe: <binário> <char:código ...>\n"
-                    "Exemplo:  101001 a:1 b:01 c:00"
-                )
-
-            binary_compact = "".join(binary.split())
-
-            if not all(c in "01" for c in binary_compact):
-                raise ValueError("Código binário inválido — use apenas 0 e 1.")
-
-            result = huffman_decoder.decode(binary_compact, codes)
+            result = huffman_decoder.decode(binary, codes)
             print(huffman_decoder.format_result(result))
             return
 
         binary = "".join(raw.split())
 
-        if not all(c in "01" for c in binary):
+        if not binary:
+            raise ValueError("Código binário vazio.")
+
+        if not all(bit in "01" for bit in binary):
             raise ValueError("Código binário inválido — use apenas 0 e 1.")
 
         if algo == "Golomb":
