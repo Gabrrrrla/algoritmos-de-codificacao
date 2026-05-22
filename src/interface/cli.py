@@ -10,7 +10,12 @@ from src.decoders.golomb_decoder import format_result as golomb_decode_fmt
 from src.decoders.elias_gamma_decoder import format_result as elias_decode_fmt
 from src.decoders.fibonacci_decoder import format_result as fib_decode_fmt
 from src.decoders.huffman_decoder import format_result as huffman_decode_fmt
-
+from src.utils.input_parser import (
+    parse_integer_algorithm_input,
+    format_ascii_mapping,
+    format_input_metadata,
+    format_reconstructed_decoding,
+)
 
 class EncoderCLI:
     """Command-line interface for encoding algorithms."""
@@ -25,6 +30,7 @@ class EncoderCLI:
         }
         self.current_algo = None
         self.golomb_m = 4
+        self.last_integer_metadata = {}
 
     def print_header(self):
         """Print application header."""
@@ -103,37 +109,49 @@ class EncoderCLI:
 
         if self.current_algo == 'Huffman':
             text = self.get_input("\nInforme o texto a codificar: ")
+
             if not text:
                 return
+
             result = huffman.encode(text)
             print()
             print(huffman.format_result(result))
+            return
 
-        else:
-            input_str = self.get_input(
-                "\nInforme números inteiros separados por espaço: "
-            )
-            if not input_str:
-                return
+        input_str = self.get_input(
+            "\nInforme números, texto, palavras ou símbolos separados por espaço/vírgula: "
+        )
 
-            try:
-                numbers = [int(x) for x in input_str.split()]
-            except ValueError:
-                print("\n❌ Entrada inválida! Use apenas números inteiros.")
-                return
+        if not input_str:
+            return
 
-            if self.current_algo == 'Golomb':
-                result = golomb.encode(numbers, m=self.golomb_m)
-                print()
-                print(golomb.format_result(result))
-            elif self.current_algo == 'Elias-Gamma':
-                result = elias_gamma.encode(numbers)
-                print()
-                print(elias_gamma.format_result(result))
-            elif self.current_algo == 'Fibonacci/Zeckendorf':
-                result = fibonacci.encode(numbers)
-                print()
-                print(fibonacci.format_result(result))
+        try:
+            parsed = parse_integer_algorithm_input(input_str, positive_only=True)
+        except (TypeError, ValueError) as exc:
+            print(f"\n❌ Entrada inválida! {exc}")
+            return
+
+        numbers = parsed.numbers
+        self.last_integer_metadata[self.current_algo] = parsed.metadata
+
+        print()
+        print(f"Tokens de entrada : {parsed.tokens}")
+        print(format_input_metadata(parsed.metadata))
+
+        if parsed.ascii_mapping:
+            print(format_ascii_mapping(parsed.ascii_mapping))
+
+        if self.current_algo == 'Golomb':
+            result = golomb.encode(numbers, m=self.golomb_m)
+            print(golomb.format_result(result))
+
+        elif self.current_algo == 'Elias-Gamma':
+            result = elias_gamma.encode(numbers)
+            print(elias_gamma.format_result(result))
+
+        elif self.current_algo == 'Fibonacci/Zeckendorf':
+            result = fibonacci.encode(numbers)
+            print(fibonacci.format_result(result))
 
     def decode_operation(self):
         """Handle decoding operation."""
@@ -142,11 +160,8 @@ class EncoderCLI:
         print("─" * 70)
 
         binary = self.get_input("\nInforme o código binário: ")
-        if not binary:
-            return
 
-        if not all(c in '01' for c in binary):
-            print("\n❌ Código binário inválido! Use apenas 0 e 1.")
+        if not binary:
             return
 
         if self.current_algo == 'Huffman':
@@ -155,31 +170,51 @@ class EncoderCLI:
             print("Exemplo: a:0 b:10 c:11")
 
             codes_str = self.get_input("\nTabela de códigos: ")
+
             if not codes_str:
                 return
 
             codes = {}
+
             for pair in codes_str.split():
                 if ':' in pair:
                     char, code = pair.split(':', 1)
                     codes[char] = code
 
-            result = huffman_decoder.decode(binary, codes)
+            binary_compact = "".join(binary.split())
+
+            if not all(c in '01' for c in binary_compact):
+                print("\n❌ Código binário inválido! Use apenas 0 e 1.")
+                return
+
+            result = huffman_decoder.decode(binary_compact, codes)
             print()
             print(huffman_decode_fmt(result))
+            return
 
-        elif self.current_algo == 'Golomb':
-            result = golomb_decoder.decode(binary, m=self.golomb_m)
+        binary_compact = "".join(binary.split())
+
+        if not all(c in '01' for c in binary_compact):
+            print("\n❌ Código binário inválido! Use apenas 0 e 1.")
+            return
+
+        if self.current_algo == 'Golomb':
+            result = golomb_decoder.decode(binary_compact, m=self.golomb_m)
             print()
             print(golomb_decode_fmt(result))
+
         elif self.current_algo == 'Elias-Gamma':
-            result = elias_gamma_decoder.decode(binary)
+            result = elias_gamma_decoder.decode(binary_compact)
             print()
             print(elias_decode_fmt(result))
+
         elif self.current_algo == 'Fibonacci/Zeckendorf':
-            result = fibonacci_decoder.decode(binary)
+            result = fibonacci_decoder.decode(binary_compact)
             print()
             print(fib_decode_fmt(result))
+
+        metadata = self.last_integer_metadata.get(self.current_algo)
+        print(format_reconstructed_decoding(result.numbers, metadata))
 
     def run_operations(self):
         """Run encoding/decoding operations loop."""

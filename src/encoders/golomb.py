@@ -9,7 +9,7 @@ Convenção adotada neste projeto:
     q = valor_interno // m
     r = valor_interno % m
 """
-
+from src.utils.input_parser import parse_to_numbers
 from dataclasses import dataclass
 from typing import List, Union
 import math
@@ -31,23 +31,7 @@ def _validate_m(m: int) -> None:
 
 
 def _normalize_numbers(numbers: Union[int, List[int]]) -> List[int]:
-    if isinstance(numbers, int) and not isinstance(numbers, bool):
-        numbers = [numbers]
-    elif not isinstance(numbers, list):
-        raise TypeError("A entrada deve ser um inteiro ou uma lista de inteiros.")
-
-    if not numbers:
-        raise ValueError("A entrada não pode ser vazia.")
-
-    normalized = []
-    for n in numbers:
-        if not isinstance(n, int) or isinstance(n, bool):
-            raise TypeError("Todos os valores devem ser inteiros.")
-        if n < 0:
-            raise ValueError("O algoritmo Golomb requer números inteiros não negativos (>= 0).")
-        normalized.append(n)
-
-    return normalized
+    return parse_to_numbers(numbers, positive_only=True)
 
 
 def encode(numbers: Union[int, List[int]], m: int = 4) -> GolombResult:

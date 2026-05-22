@@ -4,6 +4,7 @@ Elias-Gamma encoding implementation.
 Recebe uma lista de inteiros positivos e converte para código Elias-Gamma.
 """
 
+from src.utils.input_parser import parse_to_numbers
 from dataclasses import dataclass
 from typing import List, Union
 
@@ -17,20 +18,7 @@ class EliasGammaResult:
 
 
 def _validate_numbers(numbers: Union[str, List[int]]) -> List[int]:
-    if isinstance(numbers, str):
-        try:
-            numbers = [int(x.strip()) for x in numbers.split() if x.strip()]
-        except ValueError:
-            raise TypeError("A entrada deve conter apenas números inteiros separados por espaço.")
-
-    if not isinstance(numbers, list) or not numbers:
-        raise ValueError("A entrada não pode estar vazia.")
-
-    for n in numbers:
-        if not isinstance(n, int) or n <= 0:
-            raise ValueError(f"Valor inválido: '{n}'. Elias-Gamma exige inteiros maiores que zero.")
-
-    return numbers
+    return parse_to_numbers(numbers, positive_only=True)
 
 
 def encode(numbers: Union[str, List[int]]) -> EliasGammaResult:

@@ -17,6 +17,12 @@ import sys
 import tkinter as tk
 from io import StringIO
 from dataclasses import replace
+from src.utils.input_parser import (
+    parse_integer_algorithm_input,
+    format_ascii_mapping,
+    format_input_metadata,
+    format_reconstructed_decoding,
+)
 
 import customtkinter
 from src.encoders import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder
@@ -52,6 +58,7 @@ class EncoderApp(customtkinter.CTk):
 
         self._build_sidebar()
         self._build_center()
+        self._last_integer_metadata = {}
 
         # highlight first algorithm button
         self._select_algo(self.ALGORITHMS[0])
@@ -401,53 +408,79 @@ class EncoderApp(customtkinter.CTk):
             result = huffman_encoder.encode(raw)
             result = self._apply_force_error_to_result(result)
             print(huffman_encoder.format_result(result))
-        else:
-            numbers = self._parse_numbers(raw, allow_zero=False)
-            if algo == "Golomb":
-                result = golomb_encoder.encode(numbers, m=self._get_m())
-                result = self._apply_force_error_to_result(result)
-                print(golomb_encoder.format_result(result))
-            elif algo == "Elias-Gamma":
-                result = elias_gamma_encoder.encode(numbers)
-                result = self._apply_force_error_to_result(result)
-                print(elias_gamma_encoder.format_result(result))
-            elif algo == "Fibonacci/Zeckendorf":
-                result = fibonacci_encoder.encode(numbers)
-                result = self._apply_force_error_to_result(result)
-                print(fibonacci_encoder.format_result(result))
+            return
+
+        parsed = parse_integer_algorithm_input(raw, positive_only=True)
+        numbers = parsed.numbers
+        self._last_integer_metadata[algo] = parsed.metadata
+
+        print(f"Tokens de entrada : {parsed.tokens}")
+        print(format_input_metadata(parsed.metadata))
+
+        if parsed.ascii_mapping:
+            print(format_ascii_mapping(parsed.ascii_mapping))
+
+        if algo == "Golomb":
+            result = golomb_encoder.encode(numbers, m=self._get_m())
+            result = self._apply_force_error_to_result(result)
+            print(golomb_encoder.format_result(result))
+
+        elif algo == "Elias-Gamma":
+            result = elias_gamma_encoder.encode(numbers)
+            result = self._apply_force_error_to_result(result)
+            print(elias_gamma_encoder.format_result(result))
+
+        elif algo == "Fibonacci/Zeckendorf":
+            result = fibonacci_encoder.encode(numbers)
+            result = self._apply_force_error_to_result(result)
+            print(fibonacci_encoder.format_result(result))
 
     def _run_decode(self, algo: str, raw: str):
         if algo == "Huffman":
-            parts  = raw.split(None, 1)
+            parts = raw.split(None, 1)
             binary = parts[0]
             codes: dict[str, str] = {}
+
             if len(parts) == 2:
                 for pair in parts[1].split():
                     if ":" in pair:
                         ch, code = pair.split(":", 1)
                         codes[ch] = code
+
             if not codes:
                 raise ValueError(
                     "Para decodificar Huffman informe: <binário> <char:código ...>\n"
                     "Exemplo:  101001 a:1 b:01 c:00"
                 )
-            if not all(c in "01" for c in binary):
+
+            binary_compact = "".join(binary.split())
+
+            if not all(c in "01" for c in binary_compact):
                 raise ValueError("Código binário inválido — use apenas 0 e 1.")
-            result = huffman_decoder.decode(binary, codes)
+
+            result = huffman_decoder.decode(binary_compact, codes)
             print(huffman_decoder.format_result(result))
-        else:
-            binary = raw.replace(" ", "")
-            if not all(c in "01" for c in binary):
-                raise ValueError("Código binário inválido — use apenas 0 e 1.")
-            if algo == "Golomb":
-                result = golomb_decoder.decode(binary, m=self._get_m())
-                print(golomb_decoder.format_result(result))
-            elif algo == "Elias-Gamma":
-                result = elias_gamma_decoder.decode(binary)
-                print(elias_gamma_decoder.format_result(result))
-            elif algo == "Fibonacci/Zeckendorf":
-                result = fibonacci_decoder.decode(binary)
-                print(fibonacci_decoder.format_result(result))
+            return
+
+        binary = "".join(raw.split())
+
+        if not all(c in "01" for c in binary):
+            raise ValueError("Código binário inválido — use apenas 0 e 1.")
+
+        if algo == "Golomb":
+            result = golomb_decoder.decode(binary, m=self._get_m())
+            print(golomb_decoder.format_result(result))
+
+        elif algo == "Elias-Gamma":
+            result = elias_gamma_decoder.decode(binary)
+            print(elias_gamma_decoder.format_result(result))
+
+        elif algo == "Fibonacci/Zeckendorf":
+            result = fibonacci_decoder.decode(binary)
+            print(fibonacci_decoder.format_result(result))
+
+        metadata = self._last_integer_metadata.get(algo)
+        print(format_reconstructed_decoding(result.numbers, metadata))
 
     # ─────────────────────────── utils ───────────────────────────────
 
