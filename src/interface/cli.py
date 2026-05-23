@@ -102,7 +102,7 @@ class EncoderCLI:
         return True
 
     def encode_operation(self):
-        """Handle encoding operation."""
+        """Handle encoding operation. Returns (algo, codeword, metadata) or None."""
         print(f"\n{'─' * 70}")
         print(f"CODIFICAÇÃO - {self.current_algo}")
         print("─" * 70)
@@ -111,25 +111,25 @@ class EncoderCLI:
             text = self.get_input("\nInforme o texto a codificar: ")
 
             if not text:
-                return
+                return None
 
             result = huffman.encode(text)
             print()
             print(huffman.format_result(result))
-            return
+            return (self.current_algo, result.encoded, {"code_table": result.code_table})
 
         input_str = self.get_input(
             "\nInforme números, texto, palavras ou símbolos separados por espaço/vírgula: "
         )
 
         if not input_str:
-            return
+            return None
 
         try:
             parsed = parse_integer_algorithm_input(input_str, positive_only=True)
         except (TypeError, ValueError) as exc:
             print(f"\nEntrada inválida! {exc}")
-            return
+            return None
 
         numbers = parsed.numbers
         self.last_integer_metadata[self.current_algo] = parsed.metadata
@@ -152,6 +152,8 @@ class EncoderCLI:
         elif self.current_algo == 'Fibonacci/Zeckendorf':
             result = fibonacci.encode(numbers)
             print(fibonacci.format_result(result))
+
+        return (self.current_algo, result.encoded, {})
 
     def decode_operation(self):
         """Handle decoding operation."""
@@ -216,6 +218,34 @@ class EncoderCLI:
         metadata = self.last_integer_metadata.get(self.current_algo)
         print(format_reconstructed_decoding(result.numbers, metadata))
 
+    def _maybe_send_to_server(self, algo: str, codeword: str, metadata: dict):
+        """Ask the user whether to send the codeword to the error-correction server."""
+        answer = self.get_input("\nEnviar ao servidor para verificação de erros? (s/n): ")
+        if not answer or answer.lower() != 's':
+            return
+
+        from src.network.client import send_codeword  # lazy import — no server needed at startup
+
+        print("\nConectando ao servidor (127.0.0.1:9000)...")
+        try:
+            resp = send_codeword(algo, codeword, metadata)
+        except TimeoutError as exc:
+            print(f"\n Sem resposta: {exc}")
+            return
+        except OSError as exc:
+            print(f"\n Erro de rede: {exc}")
+            return
+
+        print("\n" + "─" * 70)
+        print("RESPOSTA DO SERVIDOR")
+        print("─" * 70)
+        print(f"Recebido  : {codeword[:60]}{'...' if len(codeword) > 60 else ''}")
+        print(f"Corrigido : {resp['corrected_codeword'][:60]}{'...' if len(resp['corrected_codeword']) > 60 else ''}")
+        erro_str = f"Posição {resp['error_position']}" if resp['error_detected'] else "Não detectado"
+        print(f"Erro      : {erro_str}")
+        print(f"Mensagem  : {resp['message']}")
+        print("─" * 70)
+
     def run_operations(self):
         """Run encoding/decoding operations loop."""
         while True:
@@ -225,7 +255,9 @@ class EncoderCLI:
             if choice == '3':
                 break
             elif choice == '1':
-                self.encode_operation()
+                encoded = self.encode_operation()
+                if encoded:
+                    self._maybe_send_to_server(*encoded)
             elif choice == '2':
                 self.decode_operation()
             else:

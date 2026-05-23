@@ -17,6 +17,7 @@ import sys
 import tkinter as tk
 from io import StringIO
 from dataclasses import replace
+from typing import Optional
 from src.utils.huffman_input_parser import parse_huffman_decode_input
 from src.utils.input_parser import (
     parse_integer_algorithm_input,
@@ -52,6 +53,7 @@ class EncoderApp(customtkinter.CTk):
         self.golomb_m            = tk.StringVar(value="4")
         self._placeholder_active = False
         self._HUFFMAN_PLACEHOLDER = "1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
+        self._last_server_payload: Optional[tuple] = None  # (algo, codeword, metadata)
 
         # grid: sidebar (col 0) | center (col 1, expands)
         self.grid_columnconfigure(1, weight=1)
@@ -188,13 +190,33 @@ class EncoderApp(customtkinter.CTk):
 
         # ── row 4: submit button (col 0) + error injection (col 1) ────
 
-        # ── submit button ─────────────────────────────────────────
+        # ── submit + send-to-server buttons ───────────────────────
+        btn_frame = customtkinter.CTkFrame(center, fg_color="transparent")
+        btn_frame.grid(row=4, column=0, pady=14, sticky="w")
+
         customtkinter.CTkButton(
-            center,
+            btn_frame,
             text="▶   Executar",
             font=customtkinter.CTkFont(size=13, weight="bold"),
             command=self._submit,
-        ).grid(row=4, column=0, pady=14, sticky="w")
+        ).pack(side="left", padx=(0, 12))
+
+        self._send_btn = customtkinter.CTkButton(
+            btn_frame,
+            text="⇪   Enviar ao Servidor",
+            font=customtkinter.CTkFont(size=13),
+            state="disabled",
+            command=self._send_to_server,
+        )
+        self._send_btn.pack(side="left")
+
+        self._server_status_label = customtkinter.CTkLabel(
+            btn_frame,
+            text="● Servidor: —",
+            font=customtkinter.CTkFont(size=12),
+            text_color="gray50",
+        )
+        self._server_status_label.pack(side="left", padx=(16, 0))
 
         # ── error injection ─────────────────────────────────────────
 
@@ -263,6 +285,9 @@ class EncoderApp(customtkinter.CTk):
 
         self._clear_output()
         self._clear_error()
+        self._send_btn.configure(state="disabled")
+        self._last_server_payload = None
+        self._server_status_label.configure(text="● Servidor: —", text_color="gray50")
 
         self._placeholder_active = False
         self._input_box.delete("1.0", "end")
@@ -278,6 +303,9 @@ class EncoderApp(customtkinter.CTk):
 
         self._clear_output()
         self._clear_error()
+        self._send_btn.configure(state="disabled")
+        self._last_server_payload = None
+        self._server_status_label.configure(text="● Servidor: —", text_color="gray50")
 
         if self.operation.get() == "encode":
             self._error_injection_frame.grid()
@@ -458,6 +486,8 @@ class EncoderApp(customtkinter.CTk):
             result = huffman_encoder.encode(raw)
             result = self._apply_force_error_to_result(result)
             print(huffman_encoder.format_result(result))
+            self._last_server_payload = (algo, result.encoded, {"code_table": result.code_table})
+            self.after(50, self._refresh_server_status)
             return
 
         parsed = parse_integer_algorithm_input(raw, positive_only=True)
@@ -484,6 +514,64 @@ class EncoderApp(customtkinter.CTk):
             result = fibonacci_encoder.encode(numbers)
             result = self._apply_force_error_to_result(result)
             print(fibonacci_encoder.format_result(result))
+
+        self._last_server_payload = (algo, result.encoded, {})
+        self.after(50, self._refresh_server_status)
+
+    def _update_server_status(self, online: bool):
+        if online:
+            self._server_status_label.configure(text="● Servidor: Online", text_color="#a6e3a1")
+            if self._last_server_payload is not None:
+                self._send_btn.configure(state="normal")
+        else:
+            self._server_status_label.configure(text="● Servidor: Offline", text_color="#f38ba8")
+            self._send_btn.configure(state="disabled")
+
+    def _refresh_server_status(self):
+        from src.network.client import check_server  # lazy import
+        self._update_server_status(check_server())
+
+    def _send_to_server(self):
+        if self._last_server_payload is None:
+            self._show_error("⚠  Nenhum codeword codificado para enviar.")
+            return
+
+        self._clear_error()
+        self._send_btn.configure(state="disabled")
+
+        algo, codeword, metadata = self._last_server_payload
+
+        from src.network.client import send_codeword  # lazy import
+
+        try:
+            resp = send_codeword(algo, codeword, metadata)
+        except TimeoutError as exc:
+            self._show_error(f"⚠  Sem resposta do servidor: {exc}")
+            return
+        except OSError as exc:
+            self._show_error(f"❌  Erro de rede: {exc}")
+            return
+        except Exception as exc:
+            self._show_error(f"❌  Erro inesperado: {exc}")
+            return
+
+        erro_str = (
+            f"Posição {resp['error_position']}" if resp["error_detected"] else "Não detectado"
+        )
+        server_block = (
+            "\n"
+            "── Servidor (127.0.0.1:9000) " + "─" * 40 + "\n"
+            f"Recebido  : {codeword}\n"
+            f"Corrigido : {resp['corrected_codeword']}\n"
+            f"Erro      : {erro_str}\n"
+            f"Mensagem  : {resp['message']}\n"
+            + "─" * 69
+        )
+
+        self._output_box.configure(state="normal")
+        self._output_box.insert("end", server_block)
+        self._output_box.see("end")
+        self._output_box.configure(state="disabled")
 
     def _run_decode(self, algo: str, raw: str):
         if algo == "Huffman":
