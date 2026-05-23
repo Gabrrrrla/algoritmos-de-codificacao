@@ -67,7 +67,7 @@ class EncoderCLI:
         try:
             return input(prompt).strip()
         except KeyboardInterrupt:
-            print("\n\n👋 Operação cancelada.")
+            print("\n\nOperação cancelada.")
             return None
 
     def select_algorithm(self) -> bool:
@@ -84,7 +84,7 @@ class EncoderCLI:
             return False
 
         if choice not in self.algorithms:
-            print("\n❌ Opção inválida!")
+            print("\nOpção inválida!")
             input("\nPressione Enter para continuar...")
             return True
 
@@ -95,7 +95,7 @@ class EncoderCLI:
             try:
                 self.golomb_m = int(m_str) if m_str else 4
             except ValueError:
-                print("\n❌ Valor inválido! Usando m=4")
+                print("\nValor inválido! Usando m=4")
                 self.golomb_m = 4
 
         print(f"\n✓ Algoritmo selecionado: {self.current_algo}")
@@ -128,7 +128,7 @@ class EncoderCLI:
         try:
             parsed = parse_integer_algorithm_input(input_str, positive_only=True)
         except (TypeError, ValueError) as exc:
-            print(f"\n❌ Entrada inválida! {exc}")
+            print(f"\nEntrada inválida! {exc}")
             return
 
         numbers = parsed.numbers
@@ -165,7 +165,7 @@ class EncoderCLI:
             return
 
         if self.current_algo == 'Huffman':
-            print("\n⚠️  Para Huffman, forneça a tabela de códigos.")
+            print("\nPara Huffman, forneça a tabela de códigos.")
             print("Formato: char:code (separados por espaço)")
             print("Exemplo: a:0 b:10 c:11")
 
@@ -184,7 +184,7 @@ class EncoderCLI:
             binary_compact = "".join(binary.split())
 
             if not all(c in '01' for c in binary_compact):
-                print("\n❌ Código binário inválido! Use apenas 0 e 1.")
+                print("\n Código binário inválido! Use apenas 0 e 1.")
                 return
 
             result = huffman_decoder.decode(binary_compact, codes)
@@ -195,7 +195,7 @@ class EncoderCLI:
         binary_compact = "".join(binary.split())
 
         if not all(c in '01' for c in binary_compact):
-            print("\n❌ Código binário inválido! Use apenas 0 e 1.")
+            print("\n Código binário inválido! Use apenas 0 e 1.")
             return
 
         if self.current_algo == 'Golomb':
@@ -229,7 +229,7 @@ class EncoderCLI:
             elif choice == '2':
                 self.decode_operation()
             else:
-                print("\n❌ Opção inválida!")
+                print("\n Opção inválida!")
 
             input("\nPressione Enter para continuar...")
 
@@ -245,13 +245,13 @@ class EncoderCLI:
                 self.run_operations()
                 self.current_algo = None
 
-            print("\n👋 Até logo!\n")
+            print("\n Até logo!\n")
 
         except KeyboardInterrupt:
-            print("\n\n👋 Programa encerrado pelo usuário.\n")
+            print("\n\n Programa encerrado pelo usuário.\n")
             sys.exit(0)
         except Exception as e:
-            print(f"\n❌ Erro inesperado: {e}\n")
+            print(f"\n Erro inesperado: {e}\n")
             sys.exit(1)
 
 

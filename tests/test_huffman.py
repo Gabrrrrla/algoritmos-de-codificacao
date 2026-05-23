@@ -4,21 +4,28 @@ Testes integrados para o módulo Huffman.
 Cobre:
   - Entrada textual e construção de árvore/tabela
   - Codificação e decodificação (roundtrip)
+  - Empacotamento e desempacotamento para Socket
   - Inserção manual de erro em bits
   - Verificação de falha na decodificação com erro
   - Casos-limite (1 caractere, texto longo, caracteres especiais)
 """
 
 import pytest
+import json
 from src.encoders.huffman import (
     build_frequency_table,
     build_tree,
     build_code_table,
     encode,
+    format_for_socket,
     HuffmanNode,
     HuffmanResult,
 )
-from src.decoders.huffman_decoder import decode, HuffmanDecodeResult
+from src.decoders.huffman_decoder import (
+    decode, 
+    parse_from_socket, 
+    HuffmanDecodeResult
+)
 
 
 # ── helpers ───────────────────────────────────────────────────────────
@@ -120,6 +127,31 @@ class TestEncode:
         assert result.total_bits == len(result.encoded)
 
 
+# ── Empacotamento para Socket ───────────────────────────────────
+
+class TestSocketPackaging:
+    def test_format_for_socket(self):
+        result = encode("OI")
+        payload = format_for_socket(result)
+        
+        assert "|" in payload
+        table_json, binary = payload.split("|", 1)
+        
+        assert json.loads(table_json) == result.code_table
+        assert binary == result.encoded
+
+    def test_parse_from_socket(self):
+        payload = '{"A": "0", "B": "10", "C": "11"}|01011'
+        code_table, binary = parse_from_socket(payload)
+        
+        assert code_table == {"A": "0", "B": "10", "C": "11"}
+        assert binary == "01011"
+
+    def test_parse_invalid_payload_raises(self):
+        with pytest.raises(ValueError, match="Payload inválido"):
+            parse_from_socket("STRING_SEM_BARRA_VERTICAL")
+
+
 # ── Decode ────────────────────────────────────────────────────────────
 
 class TestDecode:
@@ -156,17 +188,23 @@ class TestDecode:
 
 class TestRoundtripNoError:
     @pytest.mark.parametrize("text", [
-        "abracadabra",
+        "brizola",
         "hello world",
         "aaaaaaa",
         "abcdefghijklmnopqrstuvwxyz",
-        "Huffman é legal!",
+        "Bobajadaaa!",
         "🎉🎉🎉",
         "a",
+        "10 20 30",  # Teste de strings numéricas exigidas
     ])
     def test_roundtrip(self, text):
-        result = encode(text)
-        decoded = decode(result.encoded, result.code_table)
+        # Usando o fluxo de Sockets completo
+        enc_result = encode(text)
+        payload = format_for_socket(enc_result)
+        
+        tabela_recebida, bits_recebidos = parse_from_socket(payload)
+        decoded = decode(bits_recebidos, tabela_recebida)
+        
         assert decoded.text == text
 
 

@@ -7,6 +7,8 @@ Inverte a tabela e decodifica bit a bit.
 
 from dataclasses import dataclass
 from typing import Dict
+import json
+from typing import Tuple
 
 
 @dataclass
@@ -96,3 +98,17 @@ def format_result(result: HuffmanDecodeResult) -> str:
         f"Texto decodificado: {result.text}\n"
         f"Bits processados : {result.total_bits}"
     )
+
+
+def parse_from_socket(payload: str) -> Tuple[Dict[str, str], str]:
+    """
+    Desempacota os dados recebidos do Socket.
+    Retorna a tabela de códigos e a mensagem binária.
+    """
+    try:
+        # Divide a string em duas partes usando o primeiro '|' encontrado
+        table_json, encoded = payload.split('|', 1)
+        code_table = json.loads(table_json)
+        return code_table, encoded
+    except ValueError:
+        raise ValueError("Payload inválido. Formato esperado: TABELA_JSON|MENSAGEM_BINARIA")

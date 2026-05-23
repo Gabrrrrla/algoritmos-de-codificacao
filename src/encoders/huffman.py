@@ -9,6 +9,7 @@ Fluxo:
 """
 
 import heapq
+import json
 from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
@@ -144,3 +145,13 @@ def format_result(result: HuffmanResult) -> str:
         f"Bits totais    : {result.total_bits}\n"
         f"Taxa           : {result.rate:.2f} bits/símbolo"
     )
+
+
+def format_for_socket(result: HuffmanResult) -> str:
+    """
+    Empacota a tabela e a mensagem em uma única string para envio via Socket.
+    Formato: JSON_DA_TABELA|MENSAGEM_BINARIA
+    """
+    # json.dumps converte o dicionário python para uma string JSON
+    table_json = json.dumps(result.code_table)
+    return f"{table_json}|{result.encoded}"

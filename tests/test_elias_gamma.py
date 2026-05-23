@@ -33,6 +33,34 @@ class TestEncode:
         assert result.total_bits == len(result.encoded)
         assert result.rate > 0
 
+class TestTextSupport:
+    """Valida os requisitos de entrada de texto e múltiplas entradas"""
+    
+    def test_encode_string_of_numbers(self):
+        """Testa entrada múltipla separada por espaço."""
+        result = encode("10 20 30")
+        assert result.numbers == [10, 20, 30]
+        
+    def test_encode_string_of_numbers_with_comma(self):
+        """Testa entrada múltipla separada por vírgula."""
+        result = encode("10, 20, 30")
+        assert result.numbers == [10, 20, 30]
+
+    def test_encode_word_to_ascii(self):
+        """Testa conversão automática de símbolo textual/palavra para ASCII."""
+        # 'O' = 79, 'i' = 105
+        result = encode("Oi")
+        assert result.numbers == [79, 105]
+
+    def test_roundtrip_phrase(self):
+        """Testa o ciclo completo com uma frase simples."""
+        frase = "TP 2"
+        resultado_enc = encode(frase)
+        resultado_dec = decode(resultado_enc.encoded)
+        
+        # Converte a lista de inteiros de volta para texto
+        texto_recuperado = "".join(chr(n) for n in resultado_dec.numbers)
+        assert texto_recuperado == frase
 
 class TestDecode:
     def test_returns_elias_gamma_decode_result(self):
