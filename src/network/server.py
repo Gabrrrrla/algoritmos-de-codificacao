@@ -1,9 +1,6 @@
 """
 UDP server — receives encoded codewords, applies error detection/correction,
 and returns the result to the client.
-
-Error-correction algorithms (Hamming, CRC, Repetition) will be wired into
-handle_request() once implemented.
 """
 
 import socket
@@ -13,6 +10,7 @@ from src.network.protocol import (
     decode_request,
     encode_response,
 )
+from src.encoders import repetition_code, hamming, crc
 
 _BUFFER = 65535
 _PONG = b'{"type":"pong"}'
@@ -21,17 +19,68 @@ _PONG = b'{"type":"pong"}'
 def handle_request(request: dict) -> dict:
     """Process a decoded request and return a response dict.
 
-    Currently echoes the codeword back unchanged.
-    Replace this body (or dispatch on request["algorithm"]) once the
-    error-correction modules are ready.
+    Dispatches on request["algorithm"]:
+      - "Repetição Ri"  → majority-vote correction
+      - "Hamming (7,4)" → syndrome correction
+      - "CRC-4"         → CRC remainder check
+    All others are echoed back unchanged.
     """
+    algo = request.get("algorithm", "")
     codeword = request.get("codeword", "")
+    metadata = request.get("metadata", {})
+
+    try:
+        if algo == "Repetição Ri":
+            r = int(metadata.get("r", 3))
+            result = repetition_code.decode(codeword, r=r)
+            error_pos = result.error_positions if result.error_positions else None
+            return {
+                "error_detected": result.error_detected,
+                "corrected_codeword": result.corrected_received,
+                "error_position": error_pos,
+                "message": (
+                    f"Blocos corrigidos: {result.errors_corrected}"
+                    if result.errors_corrected
+                    else "Nenhum erro detectado."
+                ),
+            }
+
+        if algo == "Hamming (7,4)":
+            result = hamming.decode(codeword)
+            error_pos = [p for p in result.error_positions if p is not None] or None
+            return {
+                "error_detected": result.error_detected,
+                "corrected_codeword": result.corrected_codeword,
+                "error_position": error_pos,
+                "message": (
+                    f"Erro(s) corrigido(s) nas posições: {error_pos}"
+                    if result.error_detected
+                    else "Nenhum erro detectado."
+                ),
+            }
+
+        if algo == "CRC-4":
+            result = crc.check(codeword)
+            return {
+                "error_detected": result.error_detected,
+                "corrected_codeword": codeword,
+                "error_position": None,
+                "message": result.message,
+            }
+
+    except Exception as exc:
+        return {
+            "error_detected": False,
+            "corrected_codeword": codeword,
+            "error_position": None,
+            "message": f"Erro ao processar ({algo}): {exc}",
+        }
 
     return {
         "error_detected": False,
         "corrected_codeword": codeword,
         "error_position": None,
-        "message": "Algoritmos de correção ainda não implementados.",
+        "message": f"Algoritmo '{algo}' recebido (sem tratamento de erro específico).",
     }
 
 

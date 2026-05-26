@@ -28,6 +28,7 @@ from src.utils.input_parser import (
 
 import customtkinter
 from src.encoders import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder
+from src.encoders import repetition_code, hamming, crc
 from src.decoders import golomb_decoder, elias_gamma_decoder, fibonacci_decoder, huffman_decoder
 
 # ── default appearance ────────────────────────────────────────────────
@@ -38,7 +39,8 @@ customtkinter.set_default_color_theme("blue")
 class EncoderApp(customtkinter.CTk):
     """Main application window."""
 
-    ALGORITHMS = ["Golomb", "Elias-Gamma", "Fibonacci/Zeckendorf", "Huffman"]
+    ALGORITHMS = ["Golomb", "Elias-Gamma", "Fibonacci/Zeckendorf", "Huffman",
+                  "Repetição Ri", "Hamming (7,4)", "CRC-4"]
 
     def __init__(self):
         super().__init__()
@@ -51,6 +53,7 @@ class EncoderApp(customtkinter.CTk):
         self.selected_algo       = tk.StringVar(value=self.ALGORITHMS[0])
         self.operation           = tk.StringVar(value="encode")
         self.golomb_m            = tk.StringVar(value="4")
+        self.repetition_r        = tk.StringVar(value="3")
         self._placeholder_active = False
         self._HUFFMAN_PLACEHOLDER = "1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
         self._last_server_payload: Optional[tuple] = None  # (algo, codeword, metadata)
@@ -148,6 +151,19 @@ class EncoderApp(customtkinter.CTk):
             placeholder_text="4",
         ).pack(side="left")
         self._golomb_frame.grid_remove()   # hidden until Golomb is selected
+
+        self._repetition_frame = customtkinter.CTkFrame(center, fg_color="transparent")
+        self._repetition_frame.grid(row=0, column=1, sticky="ew", padx=(20, 0), pady=(0, 12))
+        customtkinter.CTkLabel(
+            self._repetition_frame, text="r :", anchor="e", width=118
+        ).pack(side="left", padx=(0, 6))
+        customtkinter.CTkEntry(
+            self._repetition_frame,
+            textvariable=self.repetition_r,
+            width=150,
+            placeholder_text="3",
+        ).pack(side="left")
+        self._repetition_frame.grid_remove()   # hidden until Repetição Ri is selected
 
         # ── row 1: encode / decode radio buttons ──────────────────────
         radio_frame = customtkinter.CTkFrame(center, fg_color="transparent")
@@ -280,8 +296,13 @@ class EncoderApp(customtkinter.CTk):
 
         if name == "Golomb":
             self._golomb_frame.grid()
+            self._repetition_frame.grid_remove()
+        elif name == "Repetição Ri":
+            self._golomb_frame.grid_remove()
+            self._repetition_frame.grid()
         else:
             self._golomb_frame.grid_remove()
+            self._repetition_frame.grid_remove()
 
         self._clear_output()
         self._clear_error()
@@ -344,6 +365,8 @@ class EncoderApp(customtkinter.CTk):
         if mode == "encode":
             if algo == "Huffman":
                 return "Digite o texto a codificar. Exemplo: Água!"
+            if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
+                return "Digite uma string binária. Exemplo: 10110100"
 
             return (
                 "Digite números, texto ou símbolos separados por espaço/vírgula.\n"
@@ -356,6 +379,8 @@ class EncoderApp(customtkinter.CTk):
                     "Digite o código binário seguido da tabela Huffman.\n"
                     "Exemplo: 1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
                 )
+            if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
+                return "Digite o código binário recebido. Exemplo: 000111000"
 
             return "Digite o código binário a decodificar. Exemplo: 001010111"
 
@@ -482,6 +507,30 @@ class EncoderApp(customtkinter.CTk):
     # ─────────────── encode / decode dispatch ────────────────────────
 
     def _run_encode(self, algo: str, raw: str):
+        if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
+            binary = raw.replace(" ", "")
+            if not binary or not all(b in "01" for b in binary):
+                raise ValueError("Entrada inválida — use apenas 0 e 1.")
+
+            if algo == "Repetição Ri":
+                r = self._get_r()
+                result = repetition_code.encode(binary, r=r)
+                print(repetition_code.format_encode_result(result))
+                self._last_server_payload = (algo, result.encoded, {"r": r})
+
+            elif algo == "Hamming (7,4)":
+                result = hamming.encode(binary)
+                print(hamming.format_encode_result(result))
+                self._last_server_payload = (algo, result.encoded, {})
+
+            elif algo == "CRC-4":
+                result = crc.encode(binary)
+                print(crc.format_encode_result(result))
+                self._last_server_payload = (algo, result.transmitted, {})
+
+            self.after(50, self._refresh_server_status)
+            return
+
         if algo == "Huffman":
             result = huffman_encoder.encode(raw)
             result = self._apply_force_error_to_result(result)
@@ -574,6 +623,26 @@ class EncoderApp(customtkinter.CTk):
         self._output_box.configure(state="disabled")
 
     def _run_decode(self, algo: str, raw: str):
+        if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
+            binary = raw.replace(" ", "")
+            if not binary or not all(b in "01" for b in binary):
+                raise ValueError("Entrada inválida — use apenas 0 e 1.")
+
+            if algo == "Repetição Ri":
+                r = self._get_r()
+                result = repetition_code.decode(binary, r=r)
+                print(repetition_code.format_decode_result(result))
+
+            elif algo == "Hamming (7,4)":
+                result = hamming.decode(binary)
+                print(hamming.format_decode_result(result))
+
+            elif algo == "CRC-4":
+                result = crc.check(binary)
+                print(crc.format_check_result(result))
+
+            return
+
         if algo == "Huffman":
             binary, codes = parse_huffman_decode_input(raw)
 
@@ -614,6 +683,15 @@ class EncoderApp(customtkinter.CTk):
             return m
         except ValueError as exc:
             raise ValueError("Parâmetro m deve ser um inteiro positivo.") from exc
+
+    def _get_r(self) -> int:
+        try:
+            r = int(self.repetition_r.get())
+            if r < 1:
+                raise ValueError
+            return r
+        except ValueError as exc:
+            raise ValueError("Parâmetro r deve ser um inteiro positivo.") from exc
 
     @staticmethod
     def _parse_numbers(raw: str, allow_zero: bool = False) -> list[int]:

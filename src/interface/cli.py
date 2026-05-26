@@ -5,6 +5,7 @@ Command-line interface for encoding algorithms.
 import sys
 from typing import Optional
 from src.encoders import golomb, elias_gamma, fibonacci, huffman
+from src.encoders import repetition_code, hamming, crc
 from src.decoders import golomb_decoder, elias_gamma_decoder, fibonacci_decoder, huffman_decoder
 from src.decoders.golomb_decoder import format_result as golomb_decode_fmt
 from src.decoders.elias_gamma_decoder import format_result as elias_decode_fmt
@@ -27,9 +28,13 @@ class EncoderCLI:
             '2': 'Elias-Gamma',
             '3': 'Fibonacci/Zeckendorf',
             '4': 'Huffman',
+            '5': 'Repetição Ri',
+            '6': 'Hamming (7,4)',
+            '7': 'CRC-4',
         }
         self.current_algo = None
         self.golomb_m = 4
+        self.repetition_r = 3
         self.last_integer_metadata = {}
 
     def print_header(self):
@@ -49,7 +54,10 @@ class EncoderCLI:
         print("2. Elias-Gamma")
         print("3. Fibonacci/Zeckendorf")
         print("4. Huffman")
-        print("5. Sair")
+        print("5. Repetição Ri")
+        print("6. Hamming (7,4)")
+        print("7. CRC-4")
+        print("8. Sair")
         print("─" * 70)
 
     def print_operation_menu(self):
@@ -78,9 +86,9 @@ class EncoderCLI:
             True if algorithm selected, False to exit
         """
         self.print_menu()
-        choice = self.get_input("\nEscolha um algoritmo (1-5): ")
+        choice = self.get_input("\nEscolha um algoritmo (1-8): ")
 
-        if choice == '5':
+        if choice == '8':
             return False
 
         if choice not in self.algorithms:
@@ -97,6 +105,16 @@ class EncoderCLI:
             except ValueError:
                 print("\nValor inválido! Usando m=4")
                 self.golomb_m = 4
+
+        if choice == '5':  # Repetição Ri
+            r_str = self.get_input("\nInforme o fator de repetição r (padrão=3, deve ser ímpar): ")
+            try:
+                self.repetition_r = int(r_str) if r_str else 3
+                if self.repetition_r < 1:
+                    raise ValueError
+            except ValueError:
+                print("\nValor inválido! Usando r=3")
+                self.repetition_r = 3
 
         print(f"\n✓ Algoritmo selecionado: {self.current_algo}")
         return True
@@ -154,6 +172,71 @@ class EncoderCLI:
             print(fibonacci.format_result(result))
 
         return (self.current_algo, result.encoded, {})
+
+    def _encode_error_correction(self):
+        """Handle encode for Repetição Ri, Hamming (7,4) and CRC-4."""
+        print(f"\n{'─' * 70}")
+        print(f"CODIFICAÇÃO - {self.current_algo}")
+        print("─" * 70)
+
+        binary = self.get_input("\nInforme a string binária a codificar: ")
+        if not binary:
+            return None
+
+        binary_clean = binary.replace(" ", "")
+        if not all(b in "01" for b in binary_clean):
+            print("\nEntrada inválida! Use apenas 0 e 1.")
+            return None
+
+        if self.current_algo == 'Repetição Ri':
+            result = repetition_code.encode(binary_clean, r=self.repetition_r)
+            print()
+            print(repetition_code.format_encode_result(result))
+            return (self.current_algo, result.encoded, {"r": self.repetition_r})
+
+        if self.current_algo == 'Hamming (7,4)':
+            result = hamming.encode(binary_clean)
+            print()
+            print(hamming.format_encode_result(result))
+            return (self.current_algo, result.encoded, {})
+
+        if self.current_algo == 'CRC-4':
+            result = crc.encode(binary_clean)
+            print()
+            print(crc.format_encode_result(result))
+            return (self.current_algo, result.transmitted, {})
+
+        return None
+
+    def _decode_error_correction(self):
+        """Handle decode/check for Repetição Ri, Hamming (7,4) and CRC-4."""
+        print(f"\n{'─' * 70}")
+        print(f"DECODIFICAÇÃO / VERIFICAÇÃO - {self.current_algo}")
+        print("─" * 70)
+
+        binary = self.get_input("\nInforme o código binário recebido: ")
+        if not binary:
+            return
+
+        binary_clean = binary.replace(" ", "")
+        if not all(b in "01" for b in binary_clean):
+            print("\nEntrada inválida! Use apenas 0 e 1.")
+            return
+
+        if self.current_algo == 'Repetição Ri':
+            result = repetition_code.decode(binary_clean, r=self.repetition_r)
+            print()
+            print(repetition_code.format_decode_result(result))
+
+        elif self.current_algo == 'Hamming (7,4)':
+            result = hamming.decode(binary_clean)
+            print()
+            print(hamming.format_decode_result(result))
+
+        elif self.current_algo == 'CRC-4':
+            result = crc.check(binary_clean)
+            print()
+            print(crc.format_check_result(result))
 
     def decode_operation(self):
         """Handle decoding operation."""
@@ -248,6 +331,7 @@ class EncoderCLI:
 
     def run_operations(self):
         """Run encoding/decoding operations loop."""
+        is_error_algo = self.current_algo in ('Repetição Ri', 'Hamming (7,4)', 'CRC-4')
         while True:
             self.print_operation_menu()
             choice = self.get_input("\nEscolha uma operação (1-3): ")
@@ -255,11 +339,19 @@ class EncoderCLI:
             if choice == '3':
                 break
             elif choice == '1':
-                encoded = self.encode_operation()
-                if encoded:
-                    self._maybe_send_to_server(*encoded)
+                if is_error_algo:
+                    encoded = self._encode_error_correction()
+                    if encoded:
+                        self._maybe_send_to_server(*encoded)
+                else:
+                    encoded = self.encode_operation()
+                    if encoded:
+                        self._maybe_send_to_server(*encoded)
             elif choice == '2':
-                self.decode_operation()
+                if is_error_algo:
+                    self._decode_error_correction()
+                else:
+                    self.decode_operation()
             else:
                 print("\n Opção inválida!")
 
