@@ -165,6 +165,55 @@ def parse_to_numbers(
     return parse_integer_algorithm_input(raw, positive_only=positive_only).numbers
 
 
+def parse_numbers_input(
+    entrada: Union[int, str, List[int]],
+    *,
+    positive_only: bool = True,
+) -> List[int]:
+    """
+    Converte entrada para lista de inteiros para uso direto nos algoritmos.
+
+    Semântica:
+    - int        → lista com um elemento
+    - List[int]  → validado e retornado diretamente
+    - str numérica (ex: "10 20" ou "10,20") → lista de ints
+    - str de texto (ex: "TP 2") → ord() de cada caractere, preservando espaços
+
+    Args:
+        entrada: Valor a converter.
+        positive_only: Se True, exige inteiros > 0; caso contrário >= 0.
+    """
+    minimum = 1 if positive_only else 0
+    label = "positivos (> 0)" if positive_only else "não negativos (>= 0)"
+
+    def _check(n: int) -> int:
+        if n < minimum:
+            raise ValueError(f"Entrada contém valor inválido: {n}. Esperado inteiros {label}.")
+        return n
+
+    if isinstance(entrada, bool):
+        raise TypeError("Valores booleanos não são aceitos como entrada numérica.")
+
+    if isinstance(entrada, int):
+        return [_check(entrada)]
+
+    if isinstance(entrada, list):
+        if not entrada:
+            raise ValueError("A entrada não pode estar vazia.")
+        return [_check(n) for n in entrada]
+
+    if isinstance(entrada, str):
+        str_limpa = entrada.replace(",", " ").strip()
+        if not str_limpa:
+            raise ValueError("A entrada não pode estar vazia.")
+        partes = str_limpa.split()
+        if partes and all(p.lstrip("+-").isdigit() for p in partes):
+            return [_check(int(p)) for p in partes]
+        return [_check(ord(c)) for c in entrada]
+
+    raise TypeError("A entrada deve ser um inteiro, string ou lista de inteiros.")
+
+
 def expected_decoded_length(metadata: Optional[InputMetadata]) -> int:
     if metadata is None:
         return 0

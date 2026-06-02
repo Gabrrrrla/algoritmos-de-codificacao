@@ -14,11 +14,8 @@ import math
 from dataclasses import dataclass
 from typing import List, Union
 
-from src.utils.validation import (
-    validate_golomb_m,
-    validate_non_negative_numbers_input,
-    validate_binary_string_decoder,
-)
+from src.utils.input_parser import parse_numbers_input
+from src.utils.validation import validate_golomb_m, validate_binary_string
 
 
 @dataclass
@@ -51,7 +48,7 @@ def encode(numbers: Union[int, str, List[int]], m: int = 4) -> GolombResult:
         GolombResult dataclass with all encoding information.
     """
     validate_golomb_m(m)
-    valid_numbers = validate_non_negative_numbers_input(numbers, "Golomb")
+    valid_numbers = parse_numbers_input(numbers, positive_only=False)
 
     k = math.ceil(math.log2(m)) if m > 1 else 0
     c = (2 ** k) - m if m > 1 else 0
@@ -100,7 +97,7 @@ def decode(binary: str, m: int = 4) -> GolombDecodeResult:
         GolombDecodeResult dataclass with decoded numbers and metadata.
     """
     validate_golomb_m(m)
-    binary = validate_binary_string_decoder(binary)
+    binary = validate_binary_string(binary)
 
     k = math.ceil(math.log2(m)) if m > 1 else 0
     c = (2 ** k) - m if m > 1 else 0

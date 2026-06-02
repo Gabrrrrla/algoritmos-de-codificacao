@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 
 from src.utils.validation import (
     validate_text,
-    validate_binary_string_decoder,
+    validate_binary_string,
     validate_huffman_codes,
 )
 
@@ -142,7 +142,7 @@ def decode(binary: str, codes: Dict[str, str]) -> HuffmanDecodeResult:
     Returns:
         HuffmanDecodeResult dataclass with decoded text and metadata.
     """
-    binary = validate_binary_string_decoder(binary)
+    binary = validate_binary_string(binary)
     codes = validate_huffman_codes(codes)
 
     inv = {code: char for char, code in codes.items()}

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from src.utils.validation import validate_binary_string_decoder, validate_repetition_r
+from src.utils.validation import validate_binary_string, validate_repetition_r
 
 
 @dataclass
@@ -29,7 +29,7 @@ class RepetitionDecodeResult:
 
 def encode(bits: str, r: int = 3) -> RepetitionResult:
     validate_repetition_r(r)
-    bits_clean = validate_binary_string_decoder(bits)
+    bits_clean = validate_binary_string(bits)
 
     encoded = "".join(b * r for b in bits_clean)
 
@@ -43,7 +43,7 @@ def encode(bits: str, r: int = 3) -> RepetitionResult:
 
 def decode(received: str, r: int = 3) -> RepetitionDecodeResult:
     validate_repetition_r(r)
-    received_clean = validate_binary_string_decoder(received)
+    received_clean = validate_binary_string(received)
 
     if len(received_clean) % r != 0:
         raise ValueError(

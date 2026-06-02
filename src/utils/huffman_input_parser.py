@@ -18,6 +18,8 @@ Para representar espaço como símbolo, use:
 
 from typing import Dict, Tuple
 
+from src.utils.validation import validate_binary_string
+
 
 _SPACE_ALIASES = {"<space>", "space", "\\s"}
 
@@ -32,18 +34,6 @@ def _normalize_symbol(symbol: str) -> str:
         return " "
 
     return symbol
-
-
-def _validate_binary(binary: str) -> str:
-    binary = "".join(binary.split())
-
-    if not binary:
-        raise ValueError("Código binário vazio.")
-
-    if any(bit not in "01" for bit in binary):
-        raise ValueError("Código binário inválido — use apenas 0 e 1.")
-
-    return binary
 
 
 def _validate_code(symbol: str, code: str) -> str:
@@ -77,7 +67,7 @@ def parse_huffman_decode_input(raw: str) -> Tuple[str, Dict[str, str]]:
             "Exemplo: 100101 !:00, a:01, b:10"
         )
 
-    binary = _validate_binary(parts[0])
+    binary = validate_binary_string(parts[0])
     table_raw = parts[1].strip()
 
     if not table_raw:

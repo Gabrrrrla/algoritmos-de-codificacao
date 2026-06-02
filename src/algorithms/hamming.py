@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from src.utils.validation import validate_binary_string_decoder
+from src.utils.validation import validate_binary_string
 
 
 @dataclass
@@ -67,7 +67,7 @@ def _extract_data(cw: str) -> str:
 
 
 def encode(bits: str) -> HammingEncodeResult:
-    bits_clean = validate_binary_string_decoder(bits)
+    bits_clean = validate_binary_string(bits)
 
     if len(bits_clean) % 4 != 0:
         pad = 4 - (len(bits_clean) % 4)
@@ -87,7 +87,7 @@ def encode(bits: str) -> HammingEncodeResult:
 
 
 def decode(received: str) -> HammingDecodeResult:
-    received_clean = validate_binary_string_decoder(received)
+    received_clean = validate_binary_string(received)
 
     if len(received_clean) % 7 != 0:
         raise ValueError(

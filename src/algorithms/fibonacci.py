@@ -8,11 +8,8 @@ Decode: recebe string binária com terminador '11', decodifica para lista de int
 from dataclasses import dataclass
 from typing import List, Union
 
-from src.utils.input_parser import parse_to_numbers
-from src.utils.validation import (
-    validate_positive_numbers_input,
-    validate_binary_string_decoder,
-)
+from src.utils.input_parser import parse_numbers_input
+from src.utils.validation import validate_binary_string
 
 
 @dataclass
@@ -40,7 +37,7 @@ def encode(numbers: Union[str, List[int]]) -> FibonacciResult:
     Returns:
         FibonacciResult dataclass with all encoding information.
     """
-    valid_numbers = validate_positive_numbers_input(numbers, "Fibonacci")
+    valid_numbers = parse_numbers_input(numbers, positive_only=True)
     parts = []
 
     for n in valid_numbers:
@@ -83,7 +80,7 @@ def decode(binary: str) -> FibonacciDecodeResult:
     Returns:
         FibonacciDecodeResult dataclass with decoded numbers and metadata.
     """
-    binary = validate_binary_string_decoder(binary)
+    binary = validate_binary_string(binary)
     fibs = [1, 2]
     result = []
     i = 0
