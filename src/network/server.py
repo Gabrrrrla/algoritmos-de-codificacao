@@ -9,10 +9,11 @@ from src.network.protocol import (
     DEFAULT_PORT,
     decode_request,
     encode_response,
+    _PING,
 )
 from src.algorithms import repetition, hamming, crc
 
-_BUFFER = 65535
+_BUFFER = 65536
 _PONG = b'{"type":"pong"}'
 
 
@@ -94,19 +95,21 @@ def run_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
         while True:
             data, addr = sock.recvfrom(_BUFFER)
 
-            try:
-                request = decode_request(data)
-            except Exception:
+            if data == _PING:
+                sock.sendto(_PONG, addr)
                 continue
 
-            if request.get("type") == "ping":
-                sock.sendto(_PONG, addr)
+            try:
+                request = decode_request(data)
+            except ValueError as exc:
+                print(f"[{addr[0]}:{addr[1]}] pacote descartado: {exc}")
+                continue
+            except Exception:
                 continue
 
             print(f"[{addr[0]}:{addr[1]}] recebido: {len(data)} bytes")
 
             try:
-                request = decode_request(data)
                 response = handle_request(request)
                 print(
                     f"  algoritmo={request.get('algorithm')}  "
