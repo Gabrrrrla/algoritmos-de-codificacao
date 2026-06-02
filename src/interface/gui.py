@@ -27,8 +27,8 @@ from src.utils.input_parser import (
 )
 
 import customtkinter
-from src.encoders import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder, repetition as repetition_encoder, hamming as hamming_encoder, crc as crc_encoder
-from src.decoders import golomb_decoder, elias_gamma_decoder, fibonacci_decoder, huffman_decoder
+from src.algorithms import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder, repetition as repetition_encoder, hamming as hamming_encoder, crc as crc_encoder
+from src.algorithms import golomb as golomb_decoder, elias_gamma as elias_gamma_decoder, fibonacci as fibonacci_decoder, huffman as huffman_decoder
 
 # ── default appearance ────────────────────────────────────────────────
 customtkinter.set_appearance_mode("Dark")
@@ -646,7 +646,7 @@ class EncoderApp(customtkinter.CTk):
             binary, codes = parse_huffman_decode_input(raw)
 
             result = huffman_decoder.decode(binary, codes)
-            print(huffman_decoder.format_result(result))
+            print(huffman_decoder.format_decode_result(result))
             return
 
         binary = "".join(raw.split())
@@ -659,15 +659,15 @@ class EncoderApp(customtkinter.CTk):
 
         if algo == "Golomb":
             result = golomb_decoder.decode(binary, m=self._get_m())
-            print(golomb_decoder.format_result(result))
+            print(golomb_decoder.format_decode_result(result))
 
         elif algo == "Elias-Gamma":
             result = elias_gamma_decoder.decode(binary)
-            print(elias_gamma_decoder.format_result(result))
+            print(elias_gamma_decoder.format_decode_result(result))
 
         elif algo == "Fibonacci/Zeckendorf":
             result = fibonacci_decoder.decode(binary)
-            print(fibonacci_decoder.format_result(result))
+            print(fibonacci_decoder.format_decode_result(result))
 
         metadata = self._last_integer_metadata.get(algo)
         print(format_reconstructed_decoding(result.numbers, metadata))

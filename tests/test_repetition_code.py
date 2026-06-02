@@ -11,7 +11,7 @@ Cobre:
 """
 
 import pytest
-from src.encoders.repetition import (
+from src.algorithms.repetition import (
     encode,
     decode,
     RepetitionResult,

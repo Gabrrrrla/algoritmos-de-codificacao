@@ -3,8 +3,8 @@ Testes integrados para o módulo Elias-Gamma.
 """
 
 import pytest
-from src.encoders.elias_gamma import encode, EliasGammaResult
-from src.decoders.elias_gamma_decoder import decode, EliasGammaDecodeResult
+from src.algorithms.elias_gamma import encode, EliasGammaResult
+from src.algorithms.elias_gamma import decode, EliasGammaDecodeResult
 
 
 def flip_bit(binary: str, index: int) -> str:

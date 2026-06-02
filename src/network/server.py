@@ -10,7 +10,7 @@ from src.network.protocol import (
     decode_request,
     encode_response,
 )
-from src.encoders import repetition, hamming, crc
+from src.algorithms import repetition, hamming, crc
 
 _BUFFER = 65535
 _PONG = b'{"type":"pong"}'

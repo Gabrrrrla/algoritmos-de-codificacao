@@ -11,8 +11,8 @@ Cobre:
 """
 
 import pytest
-from src.encoders.golomb import encode, GolombResult
-from src.decoders.golomb_decoder import decode, GolombDecodeResult
+from src.algorithms.golomb import encode, GolombResult
+from src.algorithms.golomb import decode, GolombDecodeResult
 
 
 # ── helpers ───────────────────────────────────────────────────────────

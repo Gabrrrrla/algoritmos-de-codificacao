@@ -13,7 +13,7 @@ Cobre:
 """
 
 import pytest
-from src.encoders.hamming import (
+from src.algorithms.hamming import (
     encode,
     decode,
     HammingEncodeResult,

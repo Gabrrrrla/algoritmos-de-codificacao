@@ -1,4 +1,4 @@
-#Hamming
+#Hamming (7,4)
 
 from dataclasses import dataclass
 from typing import List, Optional

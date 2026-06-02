@@ -12,7 +12,7 @@ Cobre:
 
 import pytest
 import json
-from src.encoders.huffman import (
+from src.algorithms.huffman import (
     build_frequency_table,
     build_tree,
     build_code_table,
@@ -21,9 +21,9 @@ from src.encoders.huffman import (
     HuffmanNode,
     HuffmanResult,
 )
-from src.decoders.huffman_decoder import (
-    decode, 
-    parse_from_socket, 
+from src.algorithms.huffman import (
+    decode,
+    parse_from_socket,
     HuffmanDecodeResult
 )
 

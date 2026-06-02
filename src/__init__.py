@@ -5,7 +5,7 @@ Placeholder implementations of Golomb, Elias-Gamma, Fibonacci/Zeckendorf, and Hu
 
 __version__ = "0.1.0"
 
-from src.encoders import golomb, elias_gamma, fibonacci, huffman
+from src.algorithms import golomb, elias_gamma, fibonacci, huffman
 
 __all__ = [
     "golomb",

@@ -1,8 +1,7 @@
-
-#Repetition code (Ri) encoder.
+#Repetition code (Ri)
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from src.utils.validation import validate_binary_string_decoder, validate_repetition_r
 
@@ -75,9 +74,7 @@ def decode(received: str, r: int = 3) -> RepetitionDecodeResult:
 
         decoded_bits.append(decided)
 
-        if block == decided * r:
-            pass
-        elif decided * r != block:
+        if decided * r != block:
             if block_idx not in errors_detected:
                 errors_corrected.append(block_idx)
             base = block_idx * r
@@ -101,7 +98,6 @@ def decode(received: str, r: int = 3) -> RepetitionDecodeResult:
 
 
 def format_encode_result(result: RepetitionResult) -> str:
-    """Format a RepetitionResult into a human-readable string."""
     return (
         f"Bits originais    : {result.original_bits}\n"
         f"Fator r           : {result.r}\n"
@@ -111,7 +107,6 @@ def format_encode_result(result: RepetitionResult) -> str:
 
 
 def format_decode_result(result: RepetitionDecodeResult) -> str:
-    """Format a RepetitionDecodeResult into a human-readable string."""
     lines = [
         f"Recebido          : {result.received}",
         f"Fator r           : {result.r}",

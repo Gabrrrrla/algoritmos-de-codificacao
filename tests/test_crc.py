@@ -11,7 +11,7 @@ Cobre:
 """
 
 import pytest
-from src.encoders.crc import (
+from src.algorithms.crc import (
     encode,
     check,
     CRCEncodeResult,

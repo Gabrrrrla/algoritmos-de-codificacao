@@ -4,12 +4,11 @@ Command-line interface for encoding algorithms.
 
 import sys
 from typing import Optional
-from src.encoders import golomb, elias_gamma, fibonacci, huffman, repetition, hamming, crc
-from src.decoders import golomb_decoder, elias_gamma_decoder, fibonacci_decoder, huffman_decoder
-from src.decoders.golomb_decoder import format_result as golomb_decode_fmt
-from src.decoders.elias_gamma_decoder import format_result as elias_decode_fmt
-from src.decoders.fibonacci_decoder import format_result as fib_decode_fmt
-from src.decoders.huffman_decoder import format_result as huffman_decode_fmt
+from src.algorithms import golomb, elias_gamma, fibonacci, huffman, repetition, hamming, crc
+from src.algorithms.golomb import format_decode_result as golomb_decode_fmt
+from src.algorithms.elias_gamma import format_decode_result as elias_decode_fmt
+from src.algorithms.fibonacci import format_decode_result as fib_decode_fmt
+from src.algorithms.huffman import format_decode_result as huffman_decode_fmt
 from src.utils.input_parser import (
     parse_integer_algorithm_input,
     format_ascii_mapping,
@@ -271,7 +270,7 @@ class EncoderCLI:
                 print("\n Código binário inválido! Use apenas 0 e 1.")
                 return
 
-            result = huffman_decoder.decode(binary_compact, codes)
+            result = huffman.decode(binary_compact, codes)
             print()
             print(huffman_decode_fmt(result))
             return
@@ -283,17 +282,17 @@ class EncoderCLI:
             return
 
         if self.current_algo == 'Golomb':
-            result = golomb_decoder.decode(binary_compact, m=self.golomb_m)
+            result = golomb.decode(binary_compact, m=self.golomb_m)
             print()
             print(golomb_decode_fmt(result))
 
         elif self.current_algo == 'Elias-Gamma':
-            result = elias_gamma_decoder.decode(binary_compact)
+            result = elias_gamma.decode(binary_compact)
             print()
             print(elias_decode_fmt(result))
 
         elif self.current_algo == 'Fibonacci/Zeckendorf':
-            result = fibonacci_decoder.decode(binary_compact)
+            result = fibonacci.decode(binary_compact)
             print()
             print(fib_decode_fmt(result))
 

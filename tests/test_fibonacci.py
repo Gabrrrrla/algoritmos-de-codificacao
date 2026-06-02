@@ -3,8 +3,8 @@ Testes integrados para o módulo Fibonacci (Zeckendorf).
 """
 
 import pytest
-from src.encoders.fibonacci import encode, FibonacciResult
-from src.decoders.fibonacci_decoder import decode, FibonacciDecodeResult
+from src.algorithms.fibonacci import encode, FibonacciResult
+from src.algorithms.fibonacci import decode, FibonacciDecodeResult
 
 
 def flip_bit(binary: str, index: int) -> str:

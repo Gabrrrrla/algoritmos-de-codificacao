@@ -41,14 +41,11 @@ def _xor_divide(dividend: str, divisor: str) -> str:
 
 def encode(message: str, generator: str = GENERATOR) -> CRCEncodeResult:
     message_clean = validate_binary_string_decoder(message)
-
     gen_clean = validate_binary_string_decoder(generator)
 
     crc_len = len(gen_clean) - 1
-
     augmented = message_clean + "0" * crc_len
     crc_bits = _xor_divide(augmented, gen_clean)
-
     transmitted = message_clean + crc_bits
 
     return CRCEncodeResult(
@@ -61,7 +58,6 @@ def encode(message: str, generator: str = GENERATOR) -> CRCEncodeResult:
 
 def check(received: str, generator: str = GENERATOR) -> CRCCheckResult:
     received_clean = validate_binary_string_decoder(received)
-
     gen_clean = validate_binary_string_decoder(generator)
 
     remainder = _xor_divide(received_clean, gen_clean)

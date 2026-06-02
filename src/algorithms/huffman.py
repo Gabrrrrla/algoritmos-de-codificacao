@@ -1,11 +1,8 @@
 """
-Huffman encoding implementation.
+Huffman coding.
 
-Fluxo:
-  1. Calcular frequência de cada caractere do texto
-  2. Construir a árvore de Huffman (min-heap)
-  3. Gerar a tabela de códigos (percorrer árvore)
-  4. Codificar o texto usando a tabela
+Encode: calcula frequências, constrói árvore, gera tabela e codifica o texto.
+Decode: recebe string binária e tabela de códigos, decodifica bit a bit.
 """
 
 import heapq
@@ -14,7 +11,11 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from src.utils.validation import validate_text
+from src.utils.validation import (
+    validate_text,
+    validate_binary_string_decoder,
+    validate_huffman_codes,
+)
 
 
 class HuffmanNode:
@@ -42,17 +43,21 @@ class HuffmanResult:
     rate: float
 
 
+@dataclass
+class HuffmanDecodeResult:
+    binary: str
+    codes: Dict[str, str]
+    text: str
+    total_bits: int
+
+
 def build_frequency_table(text: str) -> Dict[str, int]:
     """Retorna dicionário {caractere: frequência}."""
     return dict(Counter(text))
 
 
 def build_tree(freq_table: Dict[str, int]) -> HuffmanNode:
-    """
-    Constrói a árvore de Huffman a partir da tabela de frequências.
-
-    Retorna o nó raiz.
-    """
+    """Constrói a árvore de Huffman a partir da tabela de frequências."""
     if not freq_table:
         raise ValueError("Tabela de frequências vazia.")
 
@@ -80,10 +85,7 @@ def build_tree(freq_table: Dict[str, int]) -> HuffmanNode:
 
 
 def build_code_table(root: HuffmanNode) -> Dict[str, str]:
-    """
-    Percorre a árvore e gera {caractere: código_binário}.
-    Esquerda = '0', Direita = '1'.
-    """
+    """Percorre a árvore e gera {caractere: código_binário}. Esquerda='0', Direita='1'."""
     codes: Dict[str, str] = {}
 
     def _traverse(node: Optional[HuffmanNode], prefix: str) -> None:
@@ -104,7 +106,7 @@ def encode(text: str) -> HuffmanResult:
     Encode text using Huffman coding.
 
     Args:
-        text: Text string to encode
+        text: Text string to encode.
 
     Returns:
         HuffmanResult dataclass with all encoding information.
@@ -129,8 +131,47 @@ def encode(text: str) -> HuffmanResult:
     )
 
 
-def format_result(result: HuffmanResult) -> str:
-    """Format a HuffmanResult into a human-readable string."""
+def decode(binary: str, codes: Dict[str, str]) -> HuffmanDecodeResult:
+    """
+    Decode Huffman encoded binary string.
+
+    Args:
+        binary: Binary string to decode.
+        codes: Code table mapping characters to their binary codes.
+
+    Returns:
+        HuffmanDecodeResult dataclass with decoded text and metadata.
+    """
+    binary = validate_binary_string_decoder(binary)
+    codes = validate_huffman_codes(codes)
+
+    inv = {code: char for char, code in codes.items()}
+
+    decoded_chars = []
+    buffer = ""
+
+    for bit in binary:
+        buffer += bit
+        if buffer in inv:
+            decoded_chars.append(inv[buffer])
+            buffer = ""
+
+    if buffer:
+        raise ValueError(
+            f"Sequência binária inválida: sobrou '{buffer}' sem correspondência."
+        )
+
+    text = "".join(decoded_chars)
+
+    return HuffmanDecodeResult(
+        binary=binary,
+        codes=codes,
+        text=text,
+        total_bits=len(binary),
+    )
+
+
+def format_encode_result(result: HuffmanResult) -> str:
     return (
         f"Texto original : {result.text}\n"
         f"Frequências    : {result.freq_table}\n"
@@ -141,11 +182,30 @@ def format_result(result: HuffmanResult) -> str:
     )
 
 
+def format_decode_result(result: HuffmanDecodeResult) -> str:
+    return (
+        f"Binário recebido : {result.binary}\n"
+        f"Tabela de códigos: {result.codes}\n"
+        f"Texto decodificado: {result.text}\n"
+        f"Bits processados : {result.total_bits}"
+    )
+
+
 def format_for_socket(result: HuffmanResult) -> str:
-    """
-    Empacota a tabela e a mensagem em uma única string para envio via Socket.
-    Formato: JSON_DA_TABELA|MENSAGEM_BINARIA
-    """
-    # json.dumps converte o dicionário python para uma string JSON
+    """Empacota tabela e mensagem para envio via Socket: JSON_DA_TABELA|MENSAGEM_BINARIA."""
     table_json = json.dumps(result.code_table)
     return f"{table_json}|{result.encoded}"
+
+
+def parse_from_socket(payload: str) -> Tuple[Dict[str, str], str]:
+    """Desempacota payload recebido do Socket. Retorna (tabela_de_códigos, binário)."""
+    try:
+        table_json, encoded = payload.split('|', 1)
+        code_table = json.loads(table_json)
+        return code_table, encoded
+    except ValueError:
+        raise ValueError("Payload inválido. Formato esperado: TABELA_JSON|MENSAGEM_BINARIA")
+
+
+# Alias mantido para compatibilidade com código que usa format_result
+format_result = format_encode_result

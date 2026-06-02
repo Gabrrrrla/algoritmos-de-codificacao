@@ -138,74 +138,50 @@ A CLI apresenta um menu onde você pode:
 #### Golomb
 
 ```python
-from src.encoders.golomb import GolombEncoder
+from src.algorithms.golomb import encode, decode
 
-# Criar encoder com parâmetro m=4
-encoder = GolombEncoder(m=4)
+result = encode([0, 5, 10, 15], m=4)
+print(f"Codificado: {result.encoded}")
 
-# Codificar números
-numbers = [0, 5, 10, 15]
-encoded = encoder.encode(numbers)
-print(f"Codificado: {encoded}")
-
-# Decodificar
-decoded = encoder.decode(encoded)
-print(f"Decodificado: {decoded}")
+decoded = decode(result.encoded, m=4)
+print(f"Decodificado: {decoded.numbers}")
 ```
 
 #### Elias-Gamma
 
 ```python
-from src.encoders.elias_gamma import EliasGammaEncoder
+from src.algorithms.elias_gamma import encode, decode
 
-encoder = EliasGammaEncoder()
+result = encode([1, 5, 10, 17])
+print(f"Codificado: {result.encoded}")
 
-# Codificar números positivos
-numbers = [1, 5, 10, 17]
-encoded = encoder.encode(numbers)
-print(f"Codificado: {encoded}")
-
-# Decodificar
-decoded = encoder.decode(encoded)
-print(f"Decodificado: {decoded}")
+decoded = decode(result.encoded)
+print(f"Decodificado: {decoded.numbers}")
 ```
 
 #### Fibonacci/Zeckendorf
 
 ```python
-from src.encoders.fibonacci import FibonacciEncoder
+from src.algorithms.fibonacci import encode, decode
 
-encoder = FibonacciEncoder()
+result = encode([1, 3, 7, 15])
+print(f"Codificado: {result.encoded}")
 
-# Codificar números positivos
-numbers = [1, 3, 7, 15]
-encoded = encoder.encode(numbers)
-print(f"Codificado: {encoded}")
-
-# Decodificar
-decoded = encoder.decode(encoded)
-print(f"Decodificado: {decoded}")
+decoded = decode(result.encoded)
+print(f"Decodificado: {decoded.numbers}")
 ```
 
 #### Huffman
 
 ```python
-from src.encoders.huffman import HuffmanEncoder
+from src.algorithms.huffman import encode, decode
 
-encoder = HuffmanEncoder()
+result = encode("hello world")
+print(f"Codificado: {result.encoded}")
+print(f"Tabela de códigos: {result.code_table}")
 
-# Codificar texto
-text = "hello world"
-encoded, codes = encoder.encode(text)
-print(f"Codificado: {encoded}")
-print(f"Tabela de códigos: {codes}")
-
-# Decodificar
-decoded = encoder.decode(encoded, codes)
-print(f"Decodificado: {decoded}")
-
-# Visualizar árvore
-print(encoder.visualize_tree())
+decoded = decode(result.encoded, result.code_table)
+print(f"Decodificado: {decoded.text}")
 ```
 
 ## 📚 Algoritmos Implementados
@@ -262,40 +238,49 @@ print(encoder.visualize_tree())
 
 ## 🗂️ Estrutura do Projeto
 
-``` md
+```txt
 algoritmos-de-codificacao/
 ├── docs/
-│   └── images/                   # Imagens das interfaces
+│   └── images/                        # Imagens das interfaces
 ├── src/
 │   ├── __init__.py
-│   ├── encoders/
+│   ├── algorithms/
 │   │   ├── __init__.py
-│   │   ├── golomb.py             # Implementação Golomb
-│   │   ├── elias_gamma.py        # Implementação Elias-Gamma
-│   │   ├── fibonacci.py          # Implementação Fibonacci
-│   │   └── huffman.py            # Implementação Huffman
-│   ├── decoders/
-│   │   ├── elias_gamma_decoder.py      
-│   │   ├── fibonacci_decoder.py             
-│   │   ├── golomb_decoder.py        
-│   │   └── huffman_decoder.py            
+│   │   ├── crc.py                     # CRC-4
+│   │   ├── elias_gamma.py             # Elias-Gamma
+│   │   ├── fibonacci.py               # Fibonacci/Zeckendorf
+│   │   ├── golomb.py                  # Golomb
+│   │   ├── hamming.py                 # Hamming (7,4)
+│   │   ├── huffman.py                 # Huffman
+│   │   └── repetition.py              # Código de Repetição
 │   ├── interface/
 │   │   ├── __init__.py
-│   │   ├── gui.py                # Interface GUI
-│   │   └── cli.py                # Interface CLI
+│   │   ├── gui.py                     # Interface gráfica
+│   │   └── cli.py                     # Interface de linha de comando
+│   ├── network/
+│   │   ├── __init__.py
+│   │   ├── client.py                  # Cliente UDP
+│   │   ├── protocol.py                # Protocolo de comunicação
+│   │   └── server.py                  # Servidor UDP
 │   └── utils/
 │       ├── __init__.py
-│       ├── binary_utils.py       # Utilitários para binário
-│       └── validation.py         # Validação de entrada
+│       ├── binary_utils.py            # Utilitários para binário
+│       ├── huffman_input_parser.py    # Parser de entrada Huffman
+│       ├── input_parser.py            # Parser de entrada geral
+│       └── validation.py              # Validação de entrada
 ├── tests/
 │   ├── __init__.py
-│   ├── test_golomb.py
+│   ├── test_crc.py
 │   ├── test_elias_gamma.py
 │   ├── test_fibonacci.py
-│   └── test_huffman.py
+│   ├── test_golomb.py
+│   ├── test_hamming.py
+│   ├── test_huffman.py
+│   └── test_repetition_code.py
 ├── requirements.txt
 ├── run_cli.py
 ├── run_gui.py
+├── run_server.py
 ├── .gitignore
 └── README.md
 ```
