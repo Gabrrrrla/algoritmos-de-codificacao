@@ -10,6 +10,7 @@ Convenção adotada neste projeto:
     r = valor_interno % m
 """
 from src.utils.input_parser import parse_to_numbers
+from src.utils.validation import validate_golomb_m, validate_non_negative_numbers_input
 from dataclasses import dataclass
 from typing import List, Union
 import math
@@ -25,47 +26,6 @@ class GolombResult:
     rate: float
 
 
-def _validate_m(m: int) -> None:
-    if not isinstance(m, int) or isinstance(m, bool) or m <= 0:
-        raise ValueError("O parâmetro m do Golomb deve ser um inteiro positivo.")
-
-
-def _normalize_numbers(entrada: Union[int, str, List[int]]) -> List[int]:
-    """
-    Valida e converte a entrada para uma lista de inteiros não negativos (>= 0).
-    Se a entrada for texto (ex: "TP 2"), converte cada caractere para ASCII.
-    """
-    if isinstance(entrada, int):
-        if entrada < 0:
-            raise ValueError("Golomb aceita apenas inteiros não negativos (>= 0).")
-        return [entrada]
-
-    if isinstance(entrada, list):
-        if any(n < 0 for n in entrada):
-            raise ValueError("Golomb aceita apenas inteiros não negativos (>= 0).")
-        return entrada
-
-    if isinstance(entrada, str):
-        # Substitui vírgulas por espaço para padronizar a separação
-        str_limpa = entrada.replace(",", " ").strip()
-        
-        # String contendo apenas números (ex: "10 20 30" ou "0 5")
-        if str_limpa and all(parte.isdigit() for parte in str_limpa.split()):
-            numeros = [int(x) for x in str_limpa.split()]
-            if any(n < 0 for n in numeros):
-                raise ValueError("Golomb aceita apenas inteiros não negativos (>= 0).")
-            return numeros
-        
-        # OU string contendo texto, palavras ou frases
-        # Converte automaticamente para ASCII/Unicode
-        numeros = [ord(char) for char in entrada]
-        if any(n < 0 for n in numeros):
-            raise ValueError("O texto contém caracteres inválidos.")
-        return numeros
-
-    raise TypeError("A entrada deve ser um inteiro, string ou lista de inteiros.")
-
-
 def encode(numbers: Union[int, List[int]], m: int = 4) -> GolombResult:
     """
     Encode non-negative integer(s) using Golomb coding.
@@ -77,8 +37,8 @@ def encode(numbers: Union[int, List[int]], m: int = 4) -> GolombResult:
     Returns:
         GolombResult dataclass with all encoding information.
     """
-    _validate_m(m)
-    valid_numbers = _normalize_numbers(numbers)
+    validate_golomb_m(m)
+    valid_numbers = validate_non_negative_numbers_input(numbers, "Golomb")
 
     k = math.ceil(math.log2(m)) if m > 1 else 0
     c = (2 ** k) - m if m > 1 else 0

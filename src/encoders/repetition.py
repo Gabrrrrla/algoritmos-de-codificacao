@@ -4,6 +4,8 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from src.utils.validation import validate_binary_string_decoder, validate_repetition_r
+
 
 @dataclass
 class RepetitionResult:
@@ -26,22 +28,9 @@ class RepetitionDecodeResult:
     error_positions: List[int]
 
 
-def _validate_r(r: int) -> None:
-    if not isinstance(r, int) or isinstance(r, bool) or r < 1:
-        raise ValueError("O parâmetro r deve ser um inteiro positivo (>= 1).")
-
-
-def _validate_binary(bits: str) -> None:
-    if not bits:
-        raise ValueError("A string binária não pode estar vazia.")
-    if not all(b in "01" for b in bits):
-        raise ValueError("A entrada deve conter apenas '0' e '1'.")
-
-
 def encode(bits: str, r: int = 3) -> RepetitionResult:
-    _validate_r(r)
-    bits_clean = bits.replace(" ", "")
-    _validate_binary(bits_clean)
+    validate_repetition_r(r)
+    bits_clean = validate_binary_string_decoder(bits)
 
     encoded = "".join(b * r for b in bits_clean)
 
@@ -54,9 +43,8 @@ def encode(bits: str, r: int = 3) -> RepetitionResult:
 
 
 def decode(received: str, r: int = 3) -> RepetitionDecodeResult:
-    _validate_r(r)
-    received_clean = received.replace(" ", "")
-    _validate_binary(received_clean)
+    validate_repetition_r(r)
+    received_clean = validate_binary_string_decoder(received)
 
     if len(received_clean) % r != 0:
         raise ValueError(

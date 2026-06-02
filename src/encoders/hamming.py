@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from src.utils.validation import validate_binary_string_decoder
+
 
 @dataclass
 class HammingEncodeResult:
@@ -23,14 +25,6 @@ class HammingDecodeResult:
     decoded_data: str
     corrected_codeword: str
     error_detected: bool
-
-
-
-def _validate_binary(bits: str) -> None:
-    if not bits:
-        raise ValueError("A string binária não pode estar vazia.")
-    if not all(b in "01" for b in bits):
-        raise ValueError("A entrada deve conter apenas '0' e '1'.")
 
 
 def _encode_block(d: str) -> str:
@@ -72,10 +66,8 @@ def _extract_data(cw: str) -> str:
     return cw[2] + cw[4] + cw[5] + cw[6]
 
 
-
 def encode(bits: str) -> HammingEncodeResult:
-    bits_clean = bits.replace(" ", "")
-    _validate_binary(bits_clean)
+    bits_clean = validate_binary_string_decoder(bits)
 
     if len(bits_clean) % 4 != 0:
         pad = 4 - (len(bits_clean) % 4)
@@ -95,8 +87,7 @@ def encode(bits: str) -> HammingEncodeResult:
 
 
 def decode(received: str) -> HammingDecodeResult:
-    received_clean = received.replace(" ", "")
-    _validate_binary(received_clean)
+    received_clean = validate_binary_string_decoder(received)
 
     if len(received_clean) % 7 != 0:
         raise ValueError(

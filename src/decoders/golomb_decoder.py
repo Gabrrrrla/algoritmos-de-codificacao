@@ -13,6 +13,8 @@ import math
 from dataclasses import dataclass
 from typing import List
 
+from src.utils.validation import validate_golomb_m, validate_binary_string_decoder
+
 
 @dataclass
 class GolombDecodeResult:
@@ -20,26 +22,6 @@ class GolombDecodeResult:
     m: int
     numbers: List[int]
     total_bits: int
-
-
-def _validate_m(m: int) -> None:
-    if not isinstance(m, int) or isinstance(m, bool) or m <= 0:
-        raise ValueError("O parâmetro m do Golomb deve ser um inteiro positivo.")
-
-
-def _validate_binary(binary: str) -> str:
-    if not isinstance(binary, str):
-        raise TypeError("A entrada binária deve ser uma string.")
-
-    binary = binary.replace(" ", "")
-
-    if not binary:
-        raise ValueError("A entrada binária não pode estar vazia.")
-
-    if any(bit not in "01" for bit in binary):
-        raise ValueError("Código binário inválido — use apenas 0 e 1.")
-
-    return binary
 
 
 def decode(binary: str, m: int = 4) -> GolombDecodeResult:
@@ -53,8 +35,8 @@ def decode(binary: str, m: int = 4) -> GolombDecodeResult:
     Returns:
         GolombDecodeResult dataclass with decoded numbers and metadata.
     """
-    _validate_m(m)
-    binary = _validate_binary(binary)
+    validate_golomb_m(m)
+    binary = validate_binary_string_decoder(binary)
 
     k = math.ceil(math.log2(m)) if m > 1 else 0
     c = (2 ** k) - m if m > 1 else 0

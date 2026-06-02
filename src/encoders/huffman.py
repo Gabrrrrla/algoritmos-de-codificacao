@@ -14,6 +14,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+from src.utils.validation import validate_text
+
 
 class HuffmanNode:
     """Nó da árvore de Huffman."""
@@ -38,14 +40,6 @@ class HuffmanResult:
     encoded: str
     total_bits: int
     rate: float
-
-
-def _validate_text(text: str) -> str:
-    if not isinstance(text, str):
-        raise TypeError("A entrada deve ser uma string.")
-    if not text:
-        raise ValueError("O texto não pode estar vazio.")
-    return text
 
 
 def build_frequency_table(text: str) -> Dict[str, int]:
@@ -115,7 +109,7 @@ def encode(text: str) -> HuffmanResult:
     Returns:
         HuffmanResult dataclass with all encoding information.
     """
-    text = _validate_text(text)
+    text = validate_text(text)
 
     freq_table = build_frequency_table(text)
     tree = build_tree(freq_table)

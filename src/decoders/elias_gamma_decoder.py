@@ -7,23 +7,14 @@ Recebe uma string binária e decodifica para uma lista de inteiros.
 from dataclasses import dataclass
 from typing import List
 
+from src.utils.validation import validate_binary_string_decoder
+
 
 @dataclass
 class EliasGammaDecodeResult:
     binary: str
     numbers: List[int]
     total_bits: int
-
-
-def _validate_binary(binary: str) -> str:
-    if not isinstance(binary, str):
-        raise TypeError("A entrada binária deve ser uma string.")
-    binary = binary.replace(" ", "")
-    if not binary:
-        raise ValueError("A entrada binária não pode estar vazia.")
-    if any(bit not in "01" for bit in binary):
-        raise ValueError("Código binário inválido — use apenas 0 e 1.")
-    return binary
 
 
 def decode(binary: str) -> EliasGammaDecodeResult:
@@ -36,7 +27,7 @@ def decode(binary: str) -> EliasGammaDecodeResult:
     Returns:
         EliasGammaDecodeResult dataclass with decoded numbers and metadata.
     """
-    binary = _validate_binary(binary)
+    binary = validate_binary_string_decoder(binary)
     result = []
     i = 0
 

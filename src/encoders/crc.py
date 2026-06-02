@@ -1,7 +1,9 @@
-#CRC-4 
+#CRC-4
 
 from dataclasses import dataclass
 from typing import Optional
+
+from src.utils.validation import validate_binary_string_decoder
 
 
 GENERATOR = "10011"
@@ -24,14 +26,6 @@ class CRCCheckResult:
     message: str
 
 
-
-def _validate_binary(bits: str) -> None:
-    if not bits:
-        raise ValueError("A string binária não pode estar vazia.")
-    if not all(b in "01" for b in bits):
-        raise ValueError("A entrada deve conter apenas '0' e '1'.")
-
-
 def _xor_divide(dividend: str, divisor: str) -> str:
     deg = len(divisor)
     remainder = list(dividend)
@@ -46,11 +40,9 @@ def _xor_divide(dividend: str, divisor: str) -> str:
 
 
 def encode(message: str, generator: str = GENERATOR) -> CRCEncodeResult:
-    message_clean = message.replace(" ", "")
-    _validate_binary(message_clean)
+    message_clean = validate_binary_string_decoder(message)
 
-    gen_clean = generator.replace(" ", "")
-    _validate_binary(gen_clean)
+    gen_clean = validate_binary_string_decoder(generator)
 
     crc_len = len(gen_clean) - 1
 
@@ -68,11 +60,9 @@ def encode(message: str, generator: str = GENERATOR) -> CRCEncodeResult:
 
 
 def check(received: str, generator: str = GENERATOR) -> CRCCheckResult:
-    received_clean = received.replace(" ", "")
-    _validate_binary(received_clean)
+    received_clean = validate_binary_string_decoder(received)
 
-    gen_clean = generator.replace(" ", "")
-    _validate_binary(gen_clean)
+    gen_clean = validate_binary_string_decoder(generator)
 
     remainder = _xor_divide(received_clean, gen_clean)
     error = any(b == "1" for b in remainder)
