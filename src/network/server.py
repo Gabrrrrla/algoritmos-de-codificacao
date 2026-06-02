@@ -10,7 +10,7 @@ from src.network.protocol import (
     decode_request,
     encode_response,
 )
-from src.encoders import repetition_code, hamming, crc
+from src.encoders import repetition, hamming, crc
 
 _BUFFER = 65535
 _PONG = b'{"type":"pong"}'
@@ -32,7 +32,7 @@ def handle_request(request: dict) -> dict:
     try:
         if algo == "Repetição Ri":
             r = int(metadata.get("r", 3))
-            result = repetition_code.decode(codeword, r=r)
+            result = repetition.decode(codeword, r=r)
             error_pos = result.error_positions if result.error_positions else None
             return {
                 "error_detected": result.error_detected,

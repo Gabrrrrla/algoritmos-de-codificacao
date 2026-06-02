@@ -6,7 +6,7 @@ from src.encoders import golomb
 from src.encoders import elias_gamma
 from src.encoders import fibonacci
 from src.encoders import huffman
-from src.encoders import repetition_code
+from src.encoders import repetition
 from src.encoders import hamming
 from src.encoders import crc
 
@@ -15,7 +15,7 @@ __all__ = [
     "elias_gamma",
     "fibonacci",
     "huffman",
-    "repetition_code",
+    "repetition",
     "hamming",
     "crc",
 ]

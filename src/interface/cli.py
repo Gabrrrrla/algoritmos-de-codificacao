@@ -4,8 +4,7 @@ Command-line interface for encoding algorithms.
 
 import sys
 from typing import Optional
-from src.encoders import golomb, elias_gamma, fibonacci, huffman
-from src.encoders import repetition_code, hamming, crc
+from src.encoders import golomb, elias_gamma, fibonacci, huffman, repetition, hamming, crc
 from src.decoders import golomb_decoder, elias_gamma_decoder, fibonacci_decoder, huffman_decoder
 from src.decoders.golomb_decoder import format_result as golomb_decode_fmt
 from src.decoders.elias_gamma_decoder import format_result as elias_decode_fmt
@@ -189,9 +188,9 @@ class EncoderCLI:
             return None
 
         if self.current_algo == 'Repetição Ri':
-            result = repetition_code.encode(binary_clean, r=self.repetition_r)
+            result = repetition.encode(binary_clean, r=self.repetition_r)
             print()
-            print(repetition_code.format_encode_result(result))
+            print(repetition.format_encode_result(result))
             return (self.current_algo, result.encoded, {"r": self.repetition_r})
 
         if self.current_algo == 'Hamming (7,4)':
@@ -224,9 +223,9 @@ class EncoderCLI:
             return
 
         if self.current_algo == 'Repetição Ri':
-            result = repetition_code.decode(binary_clean, r=self.repetition_r)
+            result = repetition.decode(binary_clean, r=self.repetition_r)
             print()
-            print(repetition_code.format_decode_result(result))
+            print(repetition.format_decode_result(result))
 
         elif self.current_algo == 'Hamming (7,4)':
             result = hamming.decode(binary_clean)

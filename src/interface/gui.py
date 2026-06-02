@@ -27,8 +27,7 @@ from src.utils.input_parser import (
 )
 
 import customtkinter
-from src.encoders import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder
-from src.encoders import repetition_code, hamming, crc
+from src.encoders import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder, repetition as repetition_encoder, hamming as hamming_encoder, crc as crc_encoder
 from src.decoders import golomb_decoder, elias_gamma_decoder, fibonacci_decoder, huffman_decoder
 
 # ── default appearance ────────────────────────────────────────────────
@@ -39,8 +38,7 @@ customtkinter.set_default_color_theme("blue")
 class EncoderApp(customtkinter.CTk):
     """Main application window."""
 
-    ALGORITHMS = ["Golomb", "Elias-Gamma", "Fibonacci/Zeckendorf", "Huffman",
-                  "Repetição Ri", "Hamming (7,4)", "CRC-4"]
+    ALGORITHMS = ["Golomb", "Elias-Gamma", "Fibonacci/Zeckendorf", "Huffman", "Repetição Ri", "Hamming (7,4)", "CRC-4"]
 
     def __init__(self):
         super().__init__()
@@ -75,7 +73,8 @@ class EncoderApp(customtkinter.CTk):
         sb = customtkinter.CTkFrame(self, width=200, corner_radius=0)
         sb.grid(row=0, column=0, sticky="nsew")
         sb.grid_propagate(False)
-        sb.grid_rowconfigure(6, weight=1)   # push appearance controls to bottom
+        n = len(self.ALGORITHMS)
+        sb.grid_rowconfigure(n + 1, weight=1)  # spacer — pushes appearance controls to bottom
 
         customtkinter.CTkLabel(
             sb,
@@ -99,7 +98,7 @@ class EncoderApp(customtkinter.CTk):
 
         # appearance / scaling at bottom
         customtkinter.CTkLabel(sb, text="Aparência:", anchor="w").grid(
-            row=7, column=0, padx=20, pady=(10, 0), sticky="w"
+            row=n + 2, column=0, padx=20, pady=(10, 0), sticky="w"
         )
         self._appearance_menu = customtkinter.CTkOptionMenu(
             sb,
@@ -107,10 +106,10 @@ class EncoderApp(customtkinter.CTk):
             command=lambda v: customtkinter.set_appearance_mode(v),
         )
         self._appearance_menu.set("Dark")
-        self._appearance_menu.grid(row=8, column=0, padx=20, pady=(4, 8), sticky="ew")
+        self._appearance_menu.grid(row=n + 3, column=0, padx=20, pady=(4, 8), sticky="ew")
 
         customtkinter.CTkLabel(sb, text="Escala:", anchor="w").grid(
-            row=9, column=0, padx=20, pady=(4, 0), sticky="w"
+            row=n + 4, column=0, padx=20, pady=(4, 0), sticky="w"
         )
         self._scaling_menu = customtkinter.CTkOptionMenu(
             sb,
@@ -118,7 +117,7 @@ class EncoderApp(customtkinter.CTk):
             command=self._change_scaling,
         )
         self._scaling_menu.set("100%")
-        self._scaling_menu.grid(row=10, column=0, padx=20, pady=(4, 20), sticky="ew")
+        self._scaling_menu.grid(row=n + 5, column=0, padx=20, pady=(4, 20), sticky="ew")
 
     # ─────────────────────────── center ──────────────────────────────
 
@@ -514,18 +513,18 @@ class EncoderApp(customtkinter.CTk):
 
             if algo == "Repetição Ri":
                 r = self._get_r()
-                result = repetition_code.encode(binary, r=r)
-                print(repetition_code.format_encode_result(result))
+                result = repetition_encoder.encode(binary, r=r)
+                print(repetition_encoder.format_encode_result(result))
                 self._last_server_payload = (algo, result.encoded, {"r": r})
 
             elif algo == "Hamming (7,4)":
-                result = hamming.encode(binary)
-                print(hamming.format_encode_result(result))
+                result = hamming_encoder.encode(binary)
+                print(hamming_encoder.format_encode_result(result))
                 self._last_server_payload = (algo, result.encoded, {})
 
             elif algo == "CRC-4":
-                result = crc.encode(binary)
-                print(crc.format_encode_result(result))
+                result = crc_encoder.encode(binary)
+                print(crc_encoder.format_encode_result(result))
                 self._last_server_payload = (algo, result.transmitted, {})
 
             self.after(50, self._refresh_server_status)
@@ -630,16 +629,16 @@ class EncoderApp(customtkinter.CTk):
 
             if algo == "Repetição Ri":
                 r = self._get_r()
-                result = repetition_code.decode(binary, r=r)
-                print(repetition_code.format_decode_result(result))
+                result = repetition_encoder.decode(binary, r=r)
+                print(repetition_encoder.format_decode_result(result))
 
             elif algo == "Hamming (7,4)":
-                result = hamming.decode(binary)
-                print(hamming.format_decode_result(result))
+                result = hamming_encoder.decode(binary)
+                print(hamming_encoder.format_decode_result(result))
 
             elif algo == "CRC-4":
-                result = crc.check(binary)
-                print(crc.format_check_result(result))
+                result = crc_encoder.check(binary)
+                print(crc_encoder.format_check_result(result))
 
             return
 
