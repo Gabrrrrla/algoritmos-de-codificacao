@@ -1,9 +1,9 @@
 #Hamming (7,4)
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
-from src.utils.validation import validate_binary_string
+from src.utils.validation import parse_binary_input, validate_binary_string
 
 
 @dataclass
@@ -13,6 +13,7 @@ class HammingEncodeResult:
     codewords: List[str]
     encoded: str
     total_bits: int
+    ascii_mapping: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -67,7 +68,7 @@ def _extract_data(cw: str) -> str:
 
 
 def encode(bits: str) -> HammingEncodeResult:
-    bits_clean = validate_binary_string(bits)
+    bits_clean, ascii_mapping = parse_binary_input(bits)
 
     if len(bits_clean) % 4 != 0:
         pad = 4 - (len(bits_clean) % 4)
@@ -83,6 +84,7 @@ def encode(bits: str) -> HammingEncodeResult:
         codewords=codewords,
         encoded=encoded,
         total_bits=sum(len(cw) for cw in codewords),
+        ascii_mapping=ascii_mapping,
     )
 
 
@@ -126,7 +128,14 @@ def decode(received: str) -> HammingDecodeResult:
 
 
 def format_encode_result(result: HammingEncodeResult) -> str:
-    lines = [
+    lines = []
+    if result.ascii_mapping:
+        lines.append("Conversão ASCII/Unicode:")
+        for entry in result.ascii_mapping:
+            lines.append(f"  {entry}")
+        lines.append(f"Binário gerado    : {result.data_bits}")
+        lines.append("")
+    lines += [
         f"Bits de dados     : {result.data_bits}",
         f"Blocos (4 bits)   : {result.blocks}",
     ]

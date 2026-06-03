@@ -96,36 +96,39 @@ def run_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
         print(f"Servidor escutando em {host}:{port}")
         print("Pressione Ctrl+C para encerrar.\n")
 
-        while True:
-            data, addr = sock.recvfrom(_BUFFER)
+        try:
+            while True:
+                data, addr = sock.recvfrom(_BUFFER)
 
-            if data == _PING:
-                sock.sendto(_PONG, addr)
-                continue
+                if data == _PING:
+                    sock.sendto(_PONG, addr)
+                    continue
 
-            try:
-                request = decode_request(data)
-            except ValueError as exc:
-                print(f"[{addr[0]}:{addr[1]}] pacote descartado: {exc}")
-                continue
-            except Exception:
-                continue
+                try:
+                    request = decode_request(data)
+                except ValueError as exc:
+                    print(f"[{addr[0]}:{addr[1]}] pacote descartado: {exc}")
+                    continue
+                except Exception:
+                    continue
 
-            print(f"[{addr[0]}:{addr[1]}] recebido: {len(data)} bytes")
+                print(f"[{addr[0]}:{addr[1]}] recebido: {len(data)} bytes")
 
-            try:
-                response = handle_request(request)
-                print(
-                    f"  algoritmo={request.get('algorithm')}  "
-                    f"codeword={request.get('codeword', '')[:40]}..."
-                )
-            except Exception as exc:
-                response = {
-                    "error_detected": False,
-                    "corrected_codeword": "",
-                    "error_position": None,
-                    "message": f"Erro ao processar requisição: {exc}",
-                }
+                try:
+                    response = handle_request(request)
+                    print(
+                        f"  algoritmo={request.get('algorithm')}  "
+                        f"codeword={request.get('codeword', '')[:40]}..."
+                    )
+                except Exception as exc:
+                    response = {
+                        "error_detected": False,
+                        "corrected_codeword": "",
+                        "error_position": None,
+                        "message": f"Erro ao processar requisição: {exc}",
+                    }
 
-            sock.sendto(encode_response(**response), addr)
-            print(f"  resposta enviada: {response['message']}\n")
+                sock.sendto(encode_response(**response), addr)
+                print(f"  resposta enviada: {response['message']}\n")
+        except KeyboardInterrupt:
+            print("\nServidor encerrado.")

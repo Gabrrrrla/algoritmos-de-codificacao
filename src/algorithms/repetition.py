@@ -1,9 +1,9 @@
 #Repetition code (Ri)
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
-from src.utils.validation import validate_binary_string, validate_repetition_r
+from src.utils.validation import parse_binary_input, validate_binary_string, validate_repetition_r
 
 
 @dataclass
@@ -12,6 +12,7 @@ class RepetitionResult:
     r: int
     encoded: str
     total_bits: int
+    ascii_mapping: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -29,7 +30,7 @@ class RepetitionDecodeResult:
 
 def encode(bits: str, r: int = 3) -> RepetitionResult:
     validate_repetition_r(r)
-    bits_clean = validate_binary_string(bits)
+    bits_clean, ascii_mapping = parse_binary_input(bits)
 
     encoded = "".join(b * r for b in bits_clean)
 
@@ -38,6 +39,7 @@ def encode(bits: str, r: int = 3) -> RepetitionResult:
         r=r,
         encoded=encoded,
         total_bits=len(encoded),
+        ascii_mapping=ascii_mapping,
     )
 
 
@@ -98,12 +100,20 @@ def decode(received: str, r: int = 3) -> RepetitionDecodeResult:
 
 
 def format_encode_result(result: RepetitionResult) -> str:
-    return (
-        f"Bits originais    : {result.original_bits}\n"
-        f"Fator r           : {result.r}\n"
-        f"Codeword gerada   : {result.encoded}\n"
-        f"Bits totais       : {result.total_bits}"
-    )
+    lines = []
+    if result.ascii_mapping:
+        lines.append("Conversão ASCII/Unicode:")
+        for entry in result.ascii_mapping:
+            lines.append(f"  {entry}")
+        lines.append(f"Binário gerado    : {result.original_bits}")
+        lines.append("")
+    lines += [
+        f"Bits originais    : {result.original_bits}",
+        f"Fator r           : {result.r}",
+        f"Codeword gerada   : {result.encoded}",
+        f"Bits totais       : {result.total_bits}",
+    ]
+    return "\n".join(lines)
 
 
 def format_decode_result(result: RepetitionDecodeResult) -> str:

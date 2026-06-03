@@ -1,9 +1,9 @@
 #CRC-4
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
-from src.utils.validation import validate_binary_string
+from src.utils.validation import parse_binary_input, validate_binary_string
 
 
 GENERATOR = "10011"
@@ -15,6 +15,7 @@ class CRCEncodeResult:
     crc_bits: str
     transmitted: str
     generator: str
+    ascii_mapping: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -40,7 +41,7 @@ def _xor_divide(dividend: str, divisor: str) -> str:
 
 
 def encode(message: str, generator: str = GENERATOR) -> CRCEncodeResult:
-    message_clean = validate_binary_string(message)
+    message_clean, ascii_mapping = parse_binary_input(message)
     gen_clean = validate_binary_string(generator)
 
     crc_len = len(gen_clean) - 1
@@ -53,6 +54,7 @@ def encode(message: str, generator: str = GENERATOR) -> CRCEncodeResult:
         crc_bits=crc_bits,
         transmitted=transmitted,
         generator=gen_clean,
+        ascii_mapping=ascii_mapping,
     )
 
 
@@ -78,12 +80,20 @@ def check(received: str, generator: str = GENERATOR) -> CRCCheckResult:
 
 
 def format_encode_result(result: CRCEncodeResult) -> str:
-    return (
-        f"Mensagem original : {result.message}\n"
-        f"Polinômio gerador : {result.generator}\n"
-        f"Bits CRC          : {result.crc_bits}\n"
-        f"Transmitido       : {result.transmitted}"
-    )
+    lines = []
+    if result.ascii_mapping:
+        lines.append("Conversão ASCII/Unicode:")
+        for entry in result.ascii_mapping:
+            lines.append(f"  {entry}")
+        lines.append(f"Binário gerado    : {result.message}")
+        lines.append("")
+    lines += [
+        f"Mensagem original : {result.message}",
+        f"Polinômio gerador : {result.generator}",
+        f"Bits CRC          : {result.crc_bits}",
+        f"Transmitido       : {result.transmitted}",
+    ]
+    return "\n".join(lines)
 
 
 def format_check_result(result: CRCCheckResult) -> str:

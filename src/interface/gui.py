@@ -131,7 +131,7 @@ class EncoderApp(customtkinter.CTk):
         center.grid_rowconfigure(3, weight=2)
         center.grid_rowconfigure(6, weight=3)
 
-        # ── row 0: title (col 0) + Golomb m (col 1) ──────────────────
+        # ── row 0: title (col 0) + Golomb m (col 1) / Repetição r (col 1) ──────────────────
         self._title_label = customtkinter.CTkLabel(
             center, text="", font=customtkinter.CTkFont(size=20, weight="bold")
         )
@@ -320,7 +320,6 @@ class EncoderApp(customtkinter.CTk):
         self._input_box.delete("1.0", "end")
         self._input_box.configure(text_color=("gray10", "gray90"))
 
-        self._clear_output()
         self._clear_error()
         self._send_btn.configure(state="disabled")
         self._last_server_payload = None
@@ -363,9 +362,6 @@ class EncoderApp(customtkinter.CTk):
         if mode == "encode":
             if algo == "Huffman":
                 return "Digite o texto a codificar. Exemplo: Água!"
-            if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
-                return "Digite uma string binária. Exemplo: 10110100"
-
             return (
                 "Digite números, texto ou símbolos separados por espaço/vírgula.\n"
                 "Exemplo: 1 2 a b"
@@ -377,8 +373,6 @@ class EncoderApp(customtkinter.CTk):
                     "Digite o código binário seguido da tabela Huffman.\n"
                     "Exemplo: 1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
                 )
-            if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
-                return "Digite o código binário recebido. Exemplo: 000111000"
 
             return "Digite o código binário a decodificar. Exemplo: 001010111"
 
@@ -470,7 +464,9 @@ class EncoderApp(customtkinter.CTk):
             sys.stdout = old_stdout
 
         output_str = buf.getvalue().strip()
-        self._set_output(output_str)
+        op_label = "Codificação" if op == "encode" else "Decodificação"
+        header = f"── Cliente · {op_label} · {algo} " + "─" * max(0, 69 - 16 - len(op_label) - len(algo)) + "\n"
+        self._set_output(header + output_str)
 
     def _get_force_error_indices(self) -> list[int]:
         error_raw = self._error_entry.get().strip()
@@ -506,23 +502,22 @@ class EncoderApp(customtkinter.CTk):
 
     def _run_encode(self, algo: str, raw: str):
         if algo in ("Repetição Ri", "Hamming (7,4)", "CRC-4"):
-            binary = raw.replace(" ", "")
-            if not binary or not all(b in "01" for b in binary):
-                raise ValueError("Entrada inválida — use apenas 0 e 1.")
+            if not raw:
+                raise ValueError("A entrada não pode estar vazia.")
 
             if algo == "Repetição Ri":
                 r = self._get_r()
-                result = repetition_encoder.encode(binary, r=r)
+                result = repetition_encoder.encode(raw, r=r)
                 codeword = result.encoded
                 print(repetition_encoder.format_encode_result(result))
 
             elif algo == "Hamming (7,4)":
-                result = hamming_encoder.encode(binary)
+                result = hamming_encoder.encode(raw)
                 codeword = result.encoded
                 print(hamming_encoder.format_encode_result(result))
 
             elif algo == "CRC-4":
-                result = crc_encoder.encode(binary)
+                result = crc_encoder.encode(raw)
                 codeword = result.transmitted
                 print(crc_encoder.format_encode_result(result))
 
