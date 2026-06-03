@@ -16,7 +16,6 @@ Layout:
 import sys
 import tkinter as tk
 from io import StringIO
-from dataclasses import replace
 from typing import Optional
 from src.utils.huffman_input_parser import parse_huffman_decode_input
 from src.utils.input_parser import (
@@ -54,7 +53,7 @@ class EncoderApp(customtkinter.CTk):
         self.repetition_r        = tk.StringVar(value="3")
         self._placeholder_active = False
         self._HUFFMAN_PLACEHOLDER = "1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
-        self._last_server_payload: Optional[tuple] = None  # (algo, codeword, metadata)
+        self._last_server_payload: Optional[tuple] = None  # (algo, clean_codeword, metadata, error_indices)
 
         # grid: sidebar (col 0) | center (col 1, expands)
         self.grid_columnconfigure(1, weight=1)
@@ -337,19 +336,19 @@ class EncoderApp(customtkinter.CTk):
     def _change_scaling(self, value: str):
         customtkinter.set_widget_scaling(int(value.replace("%", "")) / 100)
     
-    def _apply_force_error_to_result(self, result):
+    def _apply_force_error(self, codeword: str) -> tuple[str, str | None]:
+        """Return (final_codeword, corrupted_or_None).
+
+        If no error indices are set, returns (codeword, None).
+        Otherwise returns (corrupted, corrupted) — caller uses the second
+        value to display the "with error" line.
+        """
         indices = self._get_force_error_indices()
         if not indices:
-            return result
+            return codeword, None
 
-        corrupted = self._inject_errors(result.encoded, indices)
-
-        replace_kwargs = {"encoded": corrupted}
-
-        if hasattr(result, "encoded_parts"):
-            replace_kwargs["encoded_parts"] = corrupted.split()
-
-        return replace(result, **replace_kwargs)
+        corrupted = self._inject_errors(codeword, indices)
+        return corrupted, corrupted
 
     # ─────────────── placeholder helpers ─────────────────────────────
 
@@ -514,27 +513,38 @@ class EncoderApp(customtkinter.CTk):
             if algo == "Repetição Ri":
                 r = self._get_r()
                 result = repetition_encoder.encode(binary, r=r)
+                codeword = result.encoded
                 print(repetition_encoder.format_encode_result(result))
-                self._last_server_payload = (algo, result.encoded, {"r": r})
 
             elif algo == "Hamming (7,4)":
                 result = hamming_encoder.encode(binary)
+                codeword = result.encoded
                 print(hamming_encoder.format_encode_result(result))
-                self._last_server_payload = (algo, result.encoded, {})
 
             elif algo == "CRC-4":
                 result = crc_encoder.encode(binary)
+                codeword = result.transmitted
                 print(crc_encoder.format_encode_result(result))
-                self._last_server_payload = (algo, result.transmitted, {})
 
+            _, corrupted = self._apply_force_error(codeword)
+            if corrupted is not None:
+                print(f"\nCódigo original   : {codeword}")
+                print(f"Código com erro   : {corrupted}")
+
+            metadata = {"r": r} if algo == "Repetição Ri" else {}
+            self._last_server_payload = (algo, codeword, metadata, self._get_force_error_indices())
             self.after(50, self._refresh_server_status)
             return
 
         if algo == "Huffman":
             result = huffman_encoder.encode(raw)
-            result = self._apply_force_error_to_result(result)
+            codeword = result.encoded
             print(huffman_encoder.format_result(result))
-            self._last_server_payload = (algo, result.encoded, {"code_table": result.code_table})
+            _, corrupted = self._apply_force_error(codeword)
+            if corrupted is not None:
+                print(f"\nCódigo original   : {codeword}")
+                print(f"Código com erro   : {corrupted}")
+            self._last_server_payload = (algo, codeword, {"code_table": result.code_table}, self._get_force_error_indices())
             self.after(50, self._refresh_server_status)
             return
 
@@ -550,20 +560,26 @@ class EncoderApp(customtkinter.CTk):
 
         if algo == "Golomb":
             result = golomb_encoder.encode(numbers, m=self._get_m())
-            result = self._apply_force_error_to_result(result)
             print(golomb_encoder.format_result(result))
 
         elif algo == "Elias-Gamma":
             result = elias_gamma_encoder.encode(numbers)
-            result = self._apply_force_error_to_result(result)
             print(elias_gamma_encoder.format_result(result))
 
         elif algo == "Fibonacci/Zeckendorf":
             result = fibonacci_encoder.encode(numbers)
-            result = self._apply_force_error_to_result(result)
             print(fibonacci_encoder.format_result(result))
 
-        self._last_server_payload = (algo, result.encoded, {})
+        codeword = result.encoded
+        _, corrupted = self._apply_force_error(codeword)
+        if corrupted is not None:
+            print(f"\nCódigo original   : {codeword}")
+            print(f"Código com erro   : {corrupted}")
+
+        # payload: (algo, clean_codeword, metadata, error_indices)
+        # clean_codeword is always the uncorrupted version so CRC can be
+        # calculated correctly on the full transmitted frame before corruption.
+        self._last_server_payload = (algo, codeword, {}, self._get_force_error_indices())
         self.after(50, self._refresh_server_status)
 
     def _update_server_status(self, online: bool):
@@ -579,6 +595,8 @@ class EncoderApp(customtkinter.CTk):
         from src.network.client import check_server  # lazy import
         self._update_server_status(check_server())
 
+    _ERROR_ALGOS = {"Repetição Ri", "Hamming (7,4)", "CRC-4"}
+
     def _send_to_server(self):
         if self._last_server_payload is None:
             self._show_error("⚠  Nenhum codeword codificado para enviar.")
@@ -587,12 +605,28 @@ class EncoderApp(customtkinter.CTk):
         self._clear_error()
         self._send_btn.configure(state="disabled")
 
-        algo, codeword, metadata = self._last_server_payload
+        algo, clean_codeword, metadata, error_indices = self._last_server_payload
+
+        if algo not in self._ERROR_ALGOS:
+            # Wrap the compression codeword with CRC so the server can detect errors.
+            from src.algorithms.crc import encode as crc_encode  # lazy import
+            crc_result = crc_encode(clean_codeword)
+            transmitted = crc_result.transmitted
+            send_algo = "CRC-4"
+            send_metadata = {}
+        else:
+            transmitted = clean_codeword
+            send_algo = algo
+            send_metadata = metadata
+
+        # Apply channel errors on the full transmitted frame (after CRC).
+        if error_indices:
+            transmitted = self._inject_errors(transmitted, error_indices)
 
         from src.network.client import send_codeword  # lazy import
 
         try:
-            resp = send_codeword(algo, codeword, metadata)
+            resp = send_codeword(send_algo, transmitted, send_metadata)
         except TimeoutError as exc:
             self._show_error(f"⚠  Sem resposta do servidor: {exc}")
             return
@@ -603,13 +637,17 @@ class EncoderApp(customtkinter.CTk):
             self._show_error(f"❌  Erro inesperado: {exc}")
             return
 
-        erro_str = (
-            f"Posição {resp['error_position']}" if resp["error_detected"] else "Não detectado"
-        )
+        pos = resp["error_position"]
+        if not resp["error_detected"]:
+            erro_str = "Não detectado"
+        elif pos is not None:
+            erro_str = f"Posição {pos}"
+        else:
+            erro_str = "Detectado (posição não localizável pelo algoritmo)"
         server_block = (
             "\n"
             "── Servidor (127.0.0.1:9000) " + "─" * 40 + "\n"
-            f"Recebido  : {codeword}\n"
+            f"Enviado   : {transmitted}\n"
             f"Corrigido : {resp['corrected_codeword']}\n"
             f"Erro      : {erro_str}\n"
             f"Mensagem  : {resp['message']}\n"

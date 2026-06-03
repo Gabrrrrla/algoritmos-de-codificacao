@@ -48,13 +48,17 @@ def handle_request(request: dict) -> dict:
 
         if algo == "Hamming (7,4)":
             result = hamming.decode(codeword)
-            error_pos = [p for p in result.error_positions if p is not None] or None
+            error_pos = [
+                f"bloco {i+1} pos {p}"
+                for i, p in enumerate(result.error_positions)
+                if p is not None
+            ] or None
             return {
                 "error_detected": result.error_detected,
                 "corrected_codeword": result.corrected_codeword,
                 "error_position": error_pos,
                 "message": (
-                    f"Erro(s) corrigido(s) nas posições: {error_pos}"
+                    f"Erro(s) corrigido(s): {', '.join(error_pos)}"
                     if result.error_detected
                     else "Nenhum erro detectado."
                 ),
