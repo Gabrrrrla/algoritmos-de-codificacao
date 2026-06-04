@@ -4,23 +4,31 @@ Command-line interface for encoding algorithms.
 
 import sys
 from typing import Optional
-from src.algorithms import golomb, elias_gamma, fibonacci, huffman, repetition, hamming, crc
-from src.algorithms.golomb import format_decode_result as golomb_decode_fmt
-from src.algorithms.elias_gamma import format_decode_result as elias_decode_fmt
-from src.algorithms.fibonacci import format_decode_result as fib_decode_fmt
-from src.algorithms.huffman import format_decode_result as huffman_decode_fmt
+from src.algorithms import (
+    golomb as alg_golomb,
+    elias_gamma as alg_elias,
+    fibonacci as alg_fibonacci,
+    huffman as alg_huffman,
+    repetition as alg_repetition,
+    hamming as alg_hamming,
+    crc as alg_crc,
+)
+from src.utils.huffman_input_parser import parse_huffman_decode_input
 from src.utils.input_parser import (
     parse_integer_algorithm_input,
     format_ascii_mapping,
     format_input_metadata,
     format_reconstructed_decoding,
 )
+from src.network.client import check_server, send_codeword
+
+_ERROR_ALGOS = {"Repetição Ri", "Hamming (7,4)", "CRC-4"}
+
 
 class EncoderCLI:
     """Command-line interface for encoding algorithms."""
 
     def __init__(self):
-        """Initialize CLI."""
         self.algorithms = {
             '1': 'Golomb',
             '2': 'Elias-Gamma',
@@ -36,7 +44,6 @@ class EncoderCLI:
         self.last_integer_metadata = {}
 
     def print_header(self):
-        """Print application header."""
         print('\n' * 2)
         print("=" * 70)
         print(" " * 15 + "ALGORITMOS DE CODIFICAÇÃO")
@@ -44,7 +51,6 @@ class EncoderCLI:
         print()
 
     def print_menu(self):
-        """Print main menu."""
         print("\n" + "─" * 70)
         print("MENU PRINCIPAL")
         print("─" * 70)
@@ -59,7 +65,6 @@ class EncoderCLI:
         print("─" * 70)
 
     def print_operation_menu(self):
-        """Print operation menu."""
         print("\n" + "─" * 70)
         print("OPERAÇÃO")
         print("─" * 70)
@@ -69,7 +74,6 @@ class EncoderCLI:
         print("─" * 70)
 
     def get_input(self, prompt: str) -> Optional[str]:
-        """Get user input."""
         try:
             return input(prompt).strip()
         except KeyboardInterrupt:
@@ -77,12 +81,6 @@ class EncoderCLI:
             return None
 
     def select_algorithm(self) -> bool:
-        """
-        Let user select encoding algorithm.
-
-        Returns:
-            True if algorithm selected, False to exit
-        """
         self.print_menu()
         choice = self.get_input("\nEscolha um algoritmo (1-8): ")
 
@@ -96,7 +94,7 @@ class EncoderCLI:
 
         self.current_algo = self.algorithms[choice]
 
-        if choice == '1':  # Golomb
+        if choice == '1':
             m_str = self.get_input("\nInforme o parâmetro m para Golomb (padrão=4): ")
             try:
                 self.golomb_m = int(m_str) if m_str else 4
@@ -104,7 +102,7 @@ class EncoderCLI:
                 print("\nValor inválido! Usando m=4")
                 self.golomb_m = 4
 
-        if choice == '5':  # Repetição Ri
+        if choice == '5':
             r_str = self.get_input("\nInforme o fator de repetição r (padrão=3, deve ser ímpar): ")
             try:
                 self.repetition_r = int(r_str) if r_str else 3
@@ -117,27 +115,26 @@ class EncoderCLI:
         print(f"\n✓ Algoritmo selecionado: {self.current_algo}")
         return True
 
+    # ─────────────────────── encode ──────────────────────────────────
+
     def encode_operation(self):
-        """Handle encoding operation. Returns (algo, codeword, metadata) or None."""
+        """Handle encoding for compression algorithms. Returns (algo, codeword, metadata) or None."""
         print(f"\n{'─' * 70}")
         print(f"CODIFICAÇÃO - {self.current_algo}")
         print("─" * 70)
 
         if self.current_algo == 'Huffman':
             text = self.get_input("\nInforme o texto a codificar: ")
-
             if not text:
                 return None
-
-            result = huffman.encode(text)
+            result = alg_huffman.encode(text)
             print()
-            print(huffman.format_result(result))
+            print(alg_huffman.format_result(result))
             return (self.current_algo, result.encoded, {"code_table": result.code_table})
 
         input_str = self.get_input(
             "\nInforme números, texto, palavras ou símbolos separados por espaço/vírgula: "
         )
-
         if not input_str:
             return None
 
@@ -158,21 +155,21 @@ class EncoderCLI:
             print(format_ascii_mapping(parsed.ascii_mapping))
 
         if self.current_algo == 'Golomb':
-            result = golomb.encode(numbers, m=self.golomb_m)
-            print(golomb.format_result(result))
+            result = alg_golomb.encode(numbers, m=self.golomb_m)
+            print(alg_golomb.format_result(result))
 
         elif self.current_algo == 'Elias-Gamma':
-            result = elias_gamma.encode(numbers)
-            print(elias_gamma.format_result(result))
+            result = alg_elias.encode(numbers)
+            print(alg_elias.format_result(result))
 
         elif self.current_algo == 'Fibonacci/Zeckendorf':
-            result = fibonacci.encode(numbers)
-            print(fibonacci.format_result(result))
+            result = alg_fibonacci.encode(numbers)
+            print(alg_fibonacci.format_result(result))
 
         return (self.current_algo, result.encoded, {})
 
     def _encode_error_correction(self):
-        """Handle encode for Repetição Ri, Hamming (7,4) and CRC-4."""
+        """Handle encode for Repetição Ri, Hamming (7,4) and CRC-4. Returns (algo, codeword, metadata) or None."""
         print(f"\n{'─' * 70}")
         print(f"CODIFICAÇÃO - {self.current_algo}")
         print("─" * 70)
@@ -187,24 +184,26 @@ class EncoderCLI:
             return None
 
         if self.current_algo == 'Repetição Ri':
-            result = repetition.encode(binary_clean, r=self.repetition_r)
+            result = alg_repetition.encode(binary_clean, r=self.repetition_r)
             print()
-            print(repetition.format_encode_result(result))
+            print(alg_repetition.format_encode_result(result))
             return (self.current_algo, result.encoded, {"r": self.repetition_r})
 
         if self.current_algo == 'Hamming (7,4)':
-            result = hamming.encode(binary_clean)
+            result = alg_hamming.encode(binary_clean)
             print()
-            print(hamming.format_encode_result(result))
+            print(alg_hamming.format_encode_result(result))
             return (self.current_algo, result.encoded, {})
 
         if self.current_algo == 'CRC-4':
-            result = crc.encode(binary_clean)
+            result = alg_crc.encode(binary_clean)
             print()
-            print(crc.format_encode_result(result))
+            print(alg_crc.format_encode_result(result))
             return (self.current_algo, result.transmitted, {})
 
         return None
+
+    # ─────────────────────── decode ──────────────────────────────────
 
     def _decode_error_correction(self):
         """Handle decode/check for Repetição Ri, Hamming (7,4) and CRC-4."""
@@ -222,114 +221,157 @@ class EncoderCLI:
             return
 
         if self.current_algo == 'Repetição Ri':
-            result = repetition.decode(binary_clean, r=self.repetition_r)
+            result = alg_repetition.decode(binary_clean, r=self.repetition_r)
             print()
-            print(repetition.format_decode_result(result))
+            print(alg_repetition.format_decode_result(result))
 
         elif self.current_algo == 'Hamming (7,4)':
-            result = hamming.decode(binary_clean)
+            result = alg_hamming.decode(binary_clean)
             print()
-            print(hamming.format_decode_result(result))
+            print(alg_hamming.format_decode_result(result))
 
         elif self.current_algo == 'CRC-4':
-            result = crc.check(binary_clean)
+            result = alg_crc.check(binary_clean)
             print()
-            print(crc.format_check_result(result))
+            print(alg_crc.format_check_result(result))
 
     def decode_operation(self):
-        """Handle decoding operation."""
+        """Handle decoding for compression algorithms."""
         print(f"\n{'─' * 70}")
         print(f"DECODIFICAÇÃO - {self.current_algo}")
         print("─" * 70)
 
-        binary = self.get_input("\nInforme o código binário: ")
+        if self.current_algo == 'Huffman':
+            raw = self.get_input(
+                "\nInforme o código binário e a tabela Huffman.\n"
+                "Exemplo: 1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111\n> "
+            )
+            if not raw:
+                return
+            binary, codes = parse_huffman_decode_input(raw)
+            result = alg_huffman.decode(binary, codes)
+            print()
+            print(alg_huffman.format_decode_result(result))
+            return
 
+        binary = self.get_input("\nInforme o código binário: ")
         if not binary:
             return
 
-        if self.current_algo == 'Huffman':
-            print("\nPara Huffman, forneça a tabela de códigos.")
-            print("Formato: char:code (separados por espaço)")
-            print("Exemplo: a:0 b:10 c:11")
-
-            codes_str = self.get_input("\nTabela de códigos: ")
-
-            if not codes_str:
-                return
-
-            codes = {}
-
-            for pair in codes_str.split():
-                if ':' in pair:
-                    char, code = pair.split(':', 1)
-                    codes[char] = code
-
-            binary_compact = "".join(binary.split())
-
-            if not all(c in '01' for c in binary_compact):
-                print("\n Código binário inválido! Use apenas 0 e 1.")
-                return
-
-            result = huffman.decode(binary_compact, codes)
-            print()
-            print(huffman_decode_fmt(result))
-            return
-
         binary_compact = "".join(binary.split())
-
         if not all(c in '01' for c in binary_compact):
-            print("\n Código binário inválido! Use apenas 0 e 1.")
+            print("\nCódigo binário inválido! Use apenas 0 e 1.")
             return
 
         if self.current_algo == 'Golomb':
-            result = golomb.decode(binary_compact, m=self.golomb_m)
+            result = alg_golomb.decode(binary_compact, m=self.golomb_m)
             print()
-            print(golomb_decode_fmt(result))
+            print(alg_golomb.format_decode_result(result))
 
         elif self.current_algo == 'Elias-Gamma':
-            result = elias_gamma.decode(binary_compact)
+            result = alg_elias.decode(binary_compact)
             print()
-            print(elias_decode_fmt(result))
+            print(alg_elias.format_decode_result(result))
 
         elif self.current_algo == 'Fibonacci/Zeckendorf':
-            result = fibonacci.decode(binary_compact)
+            result = alg_fibonacci.decode(binary_compact)
             print()
-            print(fib_decode_fmt(result))
+            print(alg_fibonacci.format_decode_result(result))
 
         metadata = self.last_integer_metadata.get(self.current_algo)
         print(format_reconstructed_decoding(result.numbers, metadata))
 
-    def _maybe_send_to_server(self, algo: str, codeword: str, metadata: dict):
-        """Ask the user whether to send the codeword to the error-correction server."""
-        answer = self.get_input("\nEnviar ao servidor para verificação de erros? (s/n): ")
-        if not answer or answer.lower() != 's':
+    # ─────────────────────── server ──────────────────────────────────
+
+    def _ask_error_injection(self, codeword: str) -> list[int]:
+        """Ask for bit indices to flip. Returns the list of indices (may be empty)."""
+        raw = self.get_input(
+            "\nInjetar erros? Informe índices dos bits a inverter separados por vírgula\n"
+            "(deixe vazio para nenhum): "
+        )
+        if not raw:
+            return []
+
+        try:
+            indices = [int(x.strip()) for x in raw.split(",")]
+        except ValueError:
+            print("\nÍndices inválidos — nenhum erro injetado.")
+            return []
+
+        if any(idx < 0 for idx in indices):
+            print("\nÍndices devem ser ≥ 0 — nenhum erro injetado.")
+            return []
+
+        return indices
+
+    @staticmethod
+    def _inject_errors(codeword: str, indices: list[int]) -> str:
+        char_list = list(codeword)
+        bit_idx = 0
+        for i, char in enumerate(char_list):
+            if char in "01":
+                if bit_idx in indices:
+                    char_list[i] = "1" if char == "0" else "0"
+                bit_idx += 1
+        return "".join(char_list)
+
+    def _send_to_server(self, algo: str, clean_codeword: str, metadata: dict, error_indices: list[int]):
+        """Check server and send automatically. Wraps compression codewords with CRC first,
+        then injects errors on the full frame so the server can detect them."""
+        if not check_server():
+            print("\n⚠  Servidor offline — resultado calculado localmente.")
             return
 
-        from src.network.client import send_codeword  # lazy import — no server needed at startup
+        if algo not in _ERROR_ALGOS:
+            crc_result = alg_crc.encode(clean_codeword)
+            frame = crc_result.transmitted
+            send_algo = "CRC-4"
+            send_metadata = {}
+        else:
+            frame = clean_codeword
+            send_algo = algo
+            send_metadata = metadata
 
-        print("\nConectando ao servidor (127.0.0.1:9000)...")
+        if error_indices:
+            corrupted = self._inject_errors(frame, error_indices)
+            print(f"\nFrame original    : {frame}")
+            print(f"Frame com erro    : {corrupted}")
+            frame = corrupted
+
+        print("\nEnviando ao servidor (127.0.0.1:9000)...")
         try:
-            resp = send_codeword(algo, codeword, metadata)
+            resp = send_codeword(send_algo, frame, send_metadata)
         except TimeoutError as exc:
-            print(f"\n Sem resposta: {exc}")
+            print(f"\n⚠  Sem resposta do servidor: {exc}")
             return
         except OSError as exc:
-            print(f"\n Erro de rede: {exc}")
+            print(f"\n❌  Erro de rede: {exc}")
+            return
+        except Exception as exc:
+            print(f"\n❌  Erro inesperado: {exc}")
             return
 
+        pos = resp["error_position"]
+        if not resp["error_detected"]:
+            erro_str = "Não detectado"
+        elif pos is not None:
+            erro_str = f"Posição {pos}"
+        else:
+            erro_str = "Detectado (posição não localizável pelo algoritmo)"
+
         print("\n" + "─" * 70)
-        print("RESPOSTA DO SERVIDOR")
+        print("RESPOSTA DO SERVIDOR (127.0.0.1:9000)")
         print("─" * 70)
-        print(f"Recebido  : {codeword[:60]}{'...' if len(codeword) > 60 else ''}")
-        print(f"Corrigido : {resp['corrected_codeword'][:60]}{'...' if len(resp['corrected_codeword']) > 60 else ''}")
-        erro_str = f"Posição {resp['error_position']}" if resp['error_detected'] else "Não detectado"
+        print(f"Enviado   : {frame}")
+        print(f"Corrigido : {resp['corrected_codeword']}")
         print(f"Erro      : {erro_str}")
         print(f"Mensagem  : {resp['message']}")
         print("─" * 70)
 
+    # ─────────────────────── main loop ───────────────────────────────
+
     def run_operations(self):
-        """Run encoding/decoding operations loop."""
-        is_error_algo = self.current_algo in ('Repetição Ri', 'Hamming (7,4)', 'CRC-4')
+        is_error_algo = self.current_algo in _ERROR_ALGOS
         while True:
             self.print_operation_menu()
             choice = self.get_input("\nEscolha uma operação (1-3): ")
@@ -337,26 +379,22 @@ class EncoderCLI:
             if choice == '3':
                 break
             elif choice == '1':
-                if is_error_algo:
-                    encoded = self._encode_error_correction()
-                    if encoded:
-                        self._maybe_send_to_server(*encoded)
-                else:
-                    encoded = self.encode_operation()
-                    if encoded:
-                        self._maybe_send_to_server(*encoded)
+                encoded = self._encode_error_correction() if is_error_algo else self.encode_operation()
+                if encoded:
+                    algo, clean_codeword, metadata = encoded
+                    error_indices = self._ask_error_injection(clean_codeword)
+                    self._send_to_server(algo, clean_codeword, metadata, error_indices)
             elif choice == '2':
                 if is_error_algo:
                     self._decode_error_correction()
                 else:
                     self.decode_operation()
             else:
-                print("\n Opção inválida!")
+                print("\nOpção inválida!")
 
             input("\nPressione Enter para continuar...")
 
     def run(self):
-        """Run the CLI application."""
         try:
             while True:
                 self.print_header()
@@ -367,18 +405,17 @@ class EncoderCLI:
                 self.run_operations()
                 self.current_algo = None
 
-            print("\n Até logo!\n")
+            print("\nAté logo!\n")
 
         except KeyboardInterrupt:
-            print("\n\n Programa encerrado pelo usuário.\n")
+            print("\n\nPrograma encerrado pelo usuário.\n")
             sys.exit(0)
         except Exception as e:
-            print(f"\n Erro inesperado: {e}\n")
+            print(f"\nErro inesperado: {e}\n")
             sys.exit(1)
 
 
 def main():
-    """Main entry point."""
     cli = EncoderCLI()
     cli.run()
 

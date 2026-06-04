@@ -2,12 +2,12 @@
 Graphical User Interface for encoding algorithms using customtkinter.
 
 Layout:
-  - Left sidebar : 4 algorithm buttons + appearance / scaling controls
+  - Left sidebar : 7 algorithm buttons + appearance / scaling controls
   - Center panel : row 0 → title + Golomb-m (same row, title left / m right)
                    row 1 → encode/decode radio buttons
                    row 2 → "Entrada" label
                    row 3 → input textbox  (expands)
-                   row 4 → submit button (col 0) + error injection (col 1)
+                   row 4 → submit button (col 0) + send to server (col 1) + error injection (col 2)
                    row 5 → "Resultado" label
                    row 6 → output textbox (expands)
                    row 7 → error label
@@ -26,8 +26,16 @@ from src.utils.input_parser import (
 )
 
 import customtkinter
-from src.algorithms import golomb as golomb_encoder, elias_gamma as elias_gamma_encoder, fibonacci as fibonacci_encoder, huffman as huffman_encoder, repetition as repetition_encoder, hamming as hamming_encoder, crc as crc_encoder
-from src.algorithms import golomb as golomb_decoder, elias_gamma as elias_gamma_decoder, fibonacci as fibonacci_decoder, huffman as huffman_decoder
+from src.algorithms import (
+    golomb as alg_golomb,
+    elias_gamma as alg_elias,
+    fibonacci as alg_fibonacci,
+    huffman as alg_huffman,
+    repetition as alg_repetition,
+    hamming as alg_hamming,
+    crc as alg_crc,
+)
+from src.network.client import check_server, send_codeword
 
 # ── default appearance ────────────────────────────────────────────────
 customtkinter.set_appearance_mode("Dark")
@@ -38,6 +46,7 @@ class EncoderApp(customtkinter.CTk):
     """Main application window."""
 
     ALGORITHMS = ["Golomb", "Elias-Gamma", "Fibonacci/Zeckendorf", "Huffman", "Repetição Ri", "Hamming (7,4)", "CRC-4"]
+    _ERROR_ALGOS = {"Repetição Ri", "Hamming (7,4)", "CRC-4"}
 
     def __init__(self):
         super().__init__()
@@ -351,10 +360,6 @@ class EncoderApp(customtkinter.CTk):
 
     # ─────────────── placeholder helpers ─────────────────────────────
 
-    def _needs_placeholder(self) -> bool:
-        # Todos os modos devem ter placeholder, inclusive Huffman + Decodificar.
-        return True
-
     def _get_placeholder_text(self) -> str:
         algo = self.selected_algo.get()
         mode = self.operation.get()
@@ -380,18 +385,12 @@ class EncoderApp(customtkinter.CTk):
 
     def _update_placeholder(self):
         """Show placeholder if the input box is empty and conditions are met."""
-        if not self._needs_placeholder():
-            return
-
         content = self._input_box.get("1.0", "end").strip()
 
         if not content:
             self._show_placeholder()
 
     def _show_placeholder(self):
-        if not self._needs_placeholder():
-            return
-
         placeholder = self._get_placeholder_text()
 
         if not placeholder:
@@ -419,7 +418,7 @@ class EncoderApp(customtkinter.CTk):
     def _on_input_focus_out(self, _event=None):
         content = self._input_box.get("1.0", "end").strip()
 
-        if not content and self._needs_placeholder():
+        if not content:
             self._show_placeholder()
 
     def _get_raw_input(self) -> str:
@@ -507,19 +506,19 @@ class EncoderApp(customtkinter.CTk):
 
             if algo == "Repetição Ri":
                 r = self._get_r()
-                result = repetition_encoder.encode(raw, r=r)
+                result = alg_repetition.encode(raw, r=r)
                 codeword = result.encoded
-                print(repetition_encoder.format_encode_result(result))
+                print(alg_repetition.format_encode_result(result))
 
             elif algo == "Hamming (7,4)":
-                result = hamming_encoder.encode(raw)
+                result = alg_hamming.encode(raw)
                 codeword = result.encoded
-                print(hamming_encoder.format_encode_result(result))
+                print(alg_hamming.format_encode_result(result))
 
             elif algo == "CRC-4":
-                result = crc_encoder.encode(raw)
+                result = alg_crc.encode(raw)
                 codeword = result.transmitted
-                print(crc_encoder.format_encode_result(result))
+                print(alg_crc.format_encode_result(result))
 
             _, corrupted = self._apply_force_error(codeword)
             if corrupted is not None:
@@ -532,9 +531,9 @@ class EncoderApp(customtkinter.CTk):
             return
 
         if algo == "Huffman":
-            result = huffman_encoder.encode(raw)
+            result = alg_huffman.encode(raw)
             codeword = result.encoded
-            print(huffman_encoder.format_result(result))
+            print(alg_huffman.format_result(result))
             _, corrupted = self._apply_force_error(codeword)
             if corrupted is not None:
                 print(f"\nCódigo original   : {codeword}")
@@ -554,16 +553,16 @@ class EncoderApp(customtkinter.CTk):
             print(format_ascii_mapping(parsed.ascii_mapping))
 
         if algo == "Golomb":
-            result = golomb_encoder.encode(numbers, m=self._get_m())
-            print(golomb_encoder.format_result(result))
+            result = alg_golomb.encode(numbers, m=self._get_m())
+            print(alg_golomb.format_result(result))
 
         elif algo == "Elias-Gamma":
-            result = elias_gamma_encoder.encode(numbers)
-            print(elias_gamma_encoder.format_result(result))
+            result = alg_elias.encode(numbers)
+            print(alg_elias.format_result(result))
 
         elif algo == "Fibonacci/Zeckendorf":
-            result = fibonacci_encoder.encode(numbers)
-            print(fibonacci_encoder.format_result(result))
+            result = alg_fibonacci.encode(numbers)
+            print(alg_fibonacci.format_result(result))
 
         codeword = result.encoded
         _, corrupted = self._apply_force_error(codeword)
@@ -587,10 +586,7 @@ class EncoderApp(customtkinter.CTk):
             self._send_btn.configure(state="disabled")
 
     def _refresh_server_status(self):
-        from src.network.client import check_server  # lazy import
         self._update_server_status(check_server())
-
-    _ERROR_ALGOS = {"Repetição Ri", "Hamming (7,4)", "CRC-4"}
 
     def _send_to_server(self):
         if self._last_server_payload is None:
@@ -604,8 +600,7 @@ class EncoderApp(customtkinter.CTk):
 
         if algo not in self._ERROR_ALGOS:
             # Wrap the compression codeword with CRC so the server can detect errors.
-            from src.algorithms.crc import encode as crc_encode  # lazy import
-            crc_result = crc_encode(clean_codeword)
+            crc_result = alg_crc.encode(clean_codeword)
             transmitted = crc_result.transmitted
             send_algo = "CRC-4"
             send_metadata = {}
@@ -617,8 +612,6 @@ class EncoderApp(customtkinter.CTk):
         # Apply channel errors on the full transmitted frame (after CRC).
         if error_indices:
             transmitted = self._inject_errors(transmitted, error_indices)
-
-        from src.network.client import send_codeword  # lazy import
 
         try:
             resp = send_codeword(send_algo, transmitted, send_metadata)
@@ -662,24 +655,24 @@ class EncoderApp(customtkinter.CTk):
 
             if algo == "Repetição Ri":
                 r = self._get_r()
-                result = repetition_encoder.decode(binary, r=r)
-                print(repetition_encoder.format_decode_result(result))
+                result = alg_repetition.decode(binary, r=r)
+                print(alg_repetition.format_decode_result(result))
 
             elif algo == "Hamming (7,4)":
-                result = hamming_encoder.decode(binary)
-                print(hamming_encoder.format_decode_result(result))
+                result = alg_hamming.decode(binary)
+                print(alg_hamming.format_decode_result(result))
 
             elif algo == "CRC-4":
-                result = crc_encoder.check(binary)
-                print(crc_encoder.format_check_result(result))
+                result = alg_crc.check(binary)
+                print(alg_crc.format_check_result(result))
 
             return
 
         if algo == "Huffman":
             binary, codes = parse_huffman_decode_input(raw)
 
-            result = huffman_decoder.decode(binary, codes)
-            print(huffman_decoder.format_decode_result(result))
+            result = alg_huffman.decode(binary, codes)
+            print(alg_huffman.format_decode_result(result))
             return
 
         binary = "".join(raw.split())
@@ -691,16 +684,16 @@ class EncoderApp(customtkinter.CTk):
             raise ValueError("Código binário inválido — use apenas 0 e 1.")
 
         if algo == "Golomb":
-            result = golomb_decoder.decode(binary, m=self._get_m())
-            print(golomb_decoder.format_decode_result(result))
+            result = alg_golomb.decode(binary, m=self._get_m())
+            print(alg_golomb.format_decode_result(result))
 
         elif algo == "Elias-Gamma":
-            result = elias_gamma_decoder.decode(binary)
-            print(elias_gamma_decoder.format_decode_result(result))
+            result = alg_elias.decode(binary)
+            print(alg_elias.format_decode_result(result))
 
         elif algo == "Fibonacci/Zeckendorf":
-            result = fibonacci_decoder.decode(binary)
-            print(fibonacci_decoder.format_decode_result(result))
+            result = alg_fibonacci.decode(binary)
+            print(alg_fibonacci.format_decode_result(result))
 
         metadata = self._last_integer_metadata.get(algo)
         print(format_reconstructed_decoding(result.numbers, metadata))
