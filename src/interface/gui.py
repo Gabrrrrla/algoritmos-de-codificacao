@@ -14,9 +14,9 @@ Layout:
 """
 
 import sys
+import random
 import tkinter as tk
 from io import StringIO
-from typing import Optional
 from src.utils.huffman_input_parser import parse_huffman_decode_input
 from src.utils.input_parser import (
     parse_integer_algorithm_input,
@@ -62,7 +62,7 @@ class EncoderApp(customtkinter.CTk):
         self.repetition_r        = tk.StringVar(value="3")
         self._placeholder_active = False
         self._HUFFMAN_PLACEHOLDER = "1001011110100110 !:00, a:01, Á:100, g:101, @:110, u:111"
-        self._last_server_payload: Optional[tuple] = None  # (algo, clean_codeword, metadata, error_indices)
+        self._auto_error = tk.BooleanVar(value=False)
 
         # grid: sidebar (col 0) | center (col 1, expands)
         self.grid_columnconfigure(1, weight=1)
@@ -137,8 +137,8 @@ class EncoderApp(customtkinter.CTk):
         center.grid_columnconfigure(0, weight=1)
         center.grid_columnconfigure(1, weight=0)
         # input and output rows expand vertically
-        center.grid_rowconfigure(3, weight=2)
-        center.grid_rowconfigure(6, weight=3)
+        center.grid_rowconfigure(3, weight=1)
+        center.grid_rowconfigure(6, weight=4)
 
         # ── row 0: title (col 0) + Golomb m (col 1) / Repetição r (col 1) ──────────────────
         self._title_label = customtkinter.CTkLabel(
@@ -202,6 +202,7 @@ class EncoderApp(customtkinter.CTk):
             center,
             font=customtkinter.CTkFont(family="Courier", size=14),
             border_spacing=14,
+            height=80,
         )
         self._input_box.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 0))
 
@@ -213,7 +214,6 @@ class EncoderApp(customtkinter.CTk):
 
         # ── row 4: submit button (col 0) + error injection (col 1) ────
 
-        # ── submit + send-to-server buttons ───────────────────────
         btn_frame = customtkinter.CTkFrame(center, fg_color="transparent")
         btn_frame.grid(row=4, column=0, pady=14, sticky="w")
 
@@ -224,38 +224,39 @@ class EncoderApp(customtkinter.CTk):
             command=self._submit,
         ).pack(side="left", padx=(0, 12))
 
-        self._send_btn = customtkinter.CTkButton(
-            btn_frame,
-            text="⇪   Enviar ao Servidor",
-            font=customtkinter.CTkFont(size=13),
-            state="disabled",
-            command=self._send_to_server,
-        )
-        self._send_btn.pack(side="left")
-
         self._server_status_label = customtkinter.CTkLabel(
             btn_frame,
             text="● Servidor: —",
             font=customtkinter.CTkFont(size=12),
             text_color="gray50",
         )
-        self._server_status_label.pack(side="left", padx=(16, 0))
+        self._server_status_label.pack(side="left", padx=(4, 0))
 
         # ── error injection ─────────────────────────────────────────
 
         self._error_injection_frame = customtkinter.CTkFrame(center, fg_color="transparent")
         self._error_injection_frame.grid(row=4, column=1, sticky="ew", padx=(20, 0), pady=14)
 
+        error_row = customtkinter.CTkFrame(self._error_injection_frame, fg_color="transparent")
+        error_row.pack(side="top", anchor="w")
+
         customtkinter.CTkLabel(
-            self._error_injection_frame, text="Force Error:", anchor="e", width=118
+            error_row, text="Force Error:", anchor="e", width=118
         ).pack(side="left", padx=(0, 6))
 
         self._error_entry = customtkinter.CTkEntry(
-            self._error_injection_frame,
+            error_row,
             width=150,
             placeholder_text="Ex: 0, 3, 5",
         )
         self._error_entry.pack(side="left")
+
+        customtkinter.CTkCheckBox(
+            self._error_injection_frame,
+            text="Injeção de erro auto",
+            variable=self._auto_error,
+            command=self._on_auto_error_change,
+        ).pack(side="top", anchor="w", padx=(124, 0), pady=(6, 0))
 
         # ── row 5: output label ────────────────────────────────────────
         customtkinter.CTkLabel(center, text="Resultado", anchor="w").grid(
@@ -268,6 +269,7 @@ class EncoderApp(customtkinter.CTk):
             font=customtkinter.CTkFont(family="Courier", size=14),
             border_spacing=14,
             state="disabled",
+            height=200,
         )
         self._output_box.grid(row=6, column=0, columnspan=2, sticky="nsew", pady=(4, 0))
 
@@ -313,8 +315,6 @@ class EncoderApp(customtkinter.CTk):
 
         self._clear_output()
         self._clear_error()
-        self._send_btn.configure(state="disabled")
-        self._last_server_payload = None
         self._server_status_label.configure(text="● Servidor: —", text_color="gray50")
 
         self._placeholder_active = False
@@ -330,8 +330,6 @@ class EncoderApp(customtkinter.CTk):
         self._input_box.configure(text_color=("gray10", "gray90"))
 
         self._clear_error()
-        self._send_btn.configure(state="disabled")
-        self._last_server_payload = None
         self._server_status_label.configure(text="● Servidor: —", text_color="gray50")
 
         if self.operation.get() == "encode":
@@ -344,19 +342,18 @@ class EncoderApp(customtkinter.CTk):
     def _change_scaling(self, value: str):
         customtkinter.set_widget_scaling(int(value.replace("%", "")) / 100)
     
-    def _apply_force_error(self, codeword: str) -> tuple[str, str | None]:
-        """Return (final_codeword, corrupted_or_None).
+    def _apply_force_error(self, codeword: str) -> tuple[str, str | None, list[int]]:
+        """Return (final_codeword, corrupted_or_None, indices).
 
-        If no error indices are set, returns (codeword, None).
-        Otherwise returns (corrupted, corrupted) — caller uses the second
-        value to display the "with error" line.
+        If no error indices are set, returns (codeword, None, []).
+        Otherwise returns (corrupted, corrupted, indices).
         """
-        indices = self._get_force_error_indices()
+        indices = self._get_force_error_indices(codeword)
         if not indices:
-            return codeword, None
+            return codeword, None, []
 
         corrupted = self._inject_errors(codeword, indices)
-        return corrupted, corrupted
+        return corrupted, corrupted, indices
 
     # ─────────────── placeholder helpers ─────────────────────────────
 
@@ -407,15 +404,15 @@ class EncoderApp(customtkinter.CTk):
             self._input_box.configure(text_color=("gray10", "gray90"))
             self._placeholder_active = False
 
-    def _on_input_focus_in(self, _event=None):
+    def _on_input_focus_in(self, _=None):
         if self._placeholder_active:
             self._remove_placeholder()
 
-    def _on_input_key_press(self, _event=None):
+    def _on_input_key_press(self, _=None):
         if self._placeholder_active:
             self._remove_placeholder()
 
-    def _on_input_focus_out(self, _event=None):
+    def _on_input_focus_out(self, _=None):
         content = self._input_box.get("1.0", "end").strip()
 
         if not content:
@@ -467,7 +464,20 @@ class EncoderApp(customtkinter.CTk):
         header = f"── Cliente · {op_label} · {algo} " + "─" * max(0, 69 - 16 - len(op_label) - len(algo)) + "\n"
         self._set_output(header + output_str)
 
-    def _get_force_error_indices(self) -> list[int]:
+    def _on_auto_error_change(self):
+        if self._auto_error.get():
+            self._error_entry.delete(0, "end")
+            self._error_entry.configure(state="disabled")
+        else:
+            self._error_entry.configure(state="normal")
+
+    def _get_force_error_indices(self, codeword: str = "") -> list[int]:
+        if self._auto_error.get():
+            n_bits = sum(1 for c in codeword if c in "01")
+            if n_bits == 0:
+                return []
+            return random.sample(range(n_bits), min(2, n_bits))
+
         error_raw = self._error_entry.get().strip()
 
         if not error_raw:
@@ -520,26 +530,26 @@ class EncoderApp(customtkinter.CTk):
                 codeword = result.transmitted
                 print(alg_crc.format_encode_result(result))
 
-            _, corrupted = self._apply_force_error(codeword)
+            _, corrupted, indices = self._apply_force_error(codeword)
             if corrupted is not None:
-                print(f"\nCódigo original   : {codeword}")
+                print(f"\n── Injeção de Erro " + "─" * 50)
+                print(f"Código original   : {codeword}")
                 print(f"Código com erro   : {corrupted}")
 
             metadata = {"r": r} if algo == "Repetição Ri" else {}
-            self._last_server_payload = (algo, codeword, metadata, self._get_force_error_indices())
-            self.after(50, self._refresh_server_status)
+            self.after(50, lambda a=algo, cw=codeword, m=metadata, idx=indices: self._check_and_send(a, cw, m, idx))
             return
 
         if algo == "Huffman":
             result = alg_huffman.encode(raw)
             codeword = result.encoded
             print(alg_huffman.format_result(result))
-            _, corrupted = self._apply_force_error(codeword)
+            _, corrupted, indices = self._apply_force_error(codeword)
             if corrupted is not None:
-                print(f"\nCódigo original   : {codeword}")
+                print(f"\n── Injeção de Erro " + "─" * 50)
+                print(f"Código original   : {codeword}")
                 print(f"Código com erro   : {corrupted}")
-            self._last_server_payload = (algo, codeword, {"code_table": result.code_table}, self._get_force_error_indices())
-            self.after(50, self._refresh_server_status)
+            self.after(50, lambda a=algo, cw=codeword, idx=indices: self._check_and_send(a, cw, {"code_table": result.code_table}, idx))
             return
 
         parsed = parse_integer_algorithm_input(raw, positive_only=True)
@@ -565,38 +575,21 @@ class EncoderApp(customtkinter.CTk):
             print(alg_fibonacci.format_result(result))
 
         codeword = result.encoded
-        _, corrupted = self._apply_force_error(codeword)
+        _, corrupted, indices = self._apply_force_error(codeword)
         if corrupted is not None:
-            print(f"\nCódigo original   : {codeword}")
+            print(f"\n── Injeção de Erro " + "─" * 50)
+            print(f"Código original   : {codeword}")
             print(f"Código com erro   : {corrupted}")
 
-        # payload: (algo, clean_codeword, metadata, error_indices)
-        # clean_codeword is always the uncorrupted version so CRC can be
-        # calculated correctly on the full transmitted frame before corruption.
-        self._last_server_payload = (algo, codeword, {}, self._get_force_error_indices())
-        self.after(50, self._refresh_server_status)
+        self.after(50, lambda a=algo, cw=codeword, idx=indices: self._check_and_send(a, cw, {}, idx))
 
-    def _update_server_status(self, online: bool):
-        if online:
-            self._server_status_label.configure(text="● Servidor: Online", text_color="#a6e3a1")
-            if self._last_server_payload is not None:
-                self._send_btn.configure(state="normal")
-        else:
+    def _check_and_send(self, algo: str, clean_codeword: str, metadata: dict, error_indices: list[int]):
+        online = check_server()
+        if not online:
             self._server_status_label.configure(text="● Servidor: Offline", text_color="#f38ba8")
-            self._send_btn.configure(state="disabled")
-
-    def _refresh_server_status(self):
-        self._update_server_status(check_server())
-
-    def _send_to_server(self):
-        if self._last_server_payload is None:
-            self._show_error("⚠  Nenhum codeword codificado para enviar.")
             return
 
-        self._clear_error()
-        self._send_btn.configure(state="disabled")
-
-        algo, clean_codeword, metadata, error_indices = self._last_server_payload
+        self._server_status_label.configure(text="● Servidor: Online", text_color="#a6e3a1")
 
         if algo not in self._ERROR_ALGOS:
             # Wrap the compression codeword with CRC so the server can detect errors.
@@ -633,8 +626,7 @@ class EncoderApp(customtkinter.CTk):
         else:
             erro_str = "Detectado (posição não localizável pelo algoritmo)"
         server_block = (
-            "\n"
-            "── Servidor (127.0.0.1:9000) " + "─" * 40 + "\n"
+            "\n\n── Servidor (127.0.0.1:9000) " + "─" * 40 + "\n"
             f"Enviado   : {transmitted}\n"
             f"Corrigido : {resp['corrected_codeword']}\n"
             f"Erro      : {erro_str}\n"
