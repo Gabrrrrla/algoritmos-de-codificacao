@@ -1,4 +1,6 @@
 #Hamming (7,4)
+# teste: 1011 0110
+
 
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -8,24 +10,24 @@ from src.utils.validation import parse_binary_input, validate_binary_string
 
 @dataclass
 class HammingEncodeResult:
-    data_bits: str
-    blocks: List[str]
-    codewords: List[str]
-    encoded: str
-    total_bits: int
-    ascii_mapping: List[str] = field(default_factory=list)
+    data_bits: str # bits de entrada limpos com padding (zeros ao final)
+    blocks: List[str] # lista dos blocos de 4 bits
+    codewords: List[str] #lista das codewords de 7 bits
+    encoded: str # codewords juntas separadas por espaço
+    total_bits: int #total de bits na saída
+    ascii_mapping: List[str] = field(default_factory=list) #mapeamento ascii
 
 
 @dataclass
 class HammingDecodeResult:
-    received: str
-    blocks: List[str]
-    syndromes: List[int]
-    error_positions: List[Optional[int]]
-    corrected_blocks: List[str]
-    decoded_data: str
-    corrected_codeword: str
-    error_detected: bool
+    received: str #string recebida limpa
+    blocks: List[str] # bloco de 7 bits
+    syndromes: List[int] # síndrome de cada bloco
+    error_positions: List[Optional[int]] #posição de erro
+    corrected_blocks: List[str] # blocos apos a correção
+    decoded_data: str #bits de dados extraídos
+    corrected_codeword: str # codewords corrigidas juntas
+    error_detected: bool #qlqr sindrome
 
 
 def _encode_block(d: str) -> str:
@@ -34,14 +36,15 @@ def _encode_block(d: str) -> str:
 
     d1, d2, d3, d4 = int(d[0]), int(d[1]), int(d[2]), int(d[3])
 
-    p1 = d1 ^ d2 ^ d4
+    p1 = d1 ^ d2 ^ d4 #xor
     p2 = d1 ^ d3 ^ d4
     p3 = d2 ^ d3 ^ d4
 
-    return f"{p1}{p2}{d1}{p3}{d2}{d3}{d4}"
+    return f"{p1}{p2}{d1}{p3}{d2}{d3}{d4}" # eh assim pq p1, p2 e p3 sao potencias de dois e 
+# p1 verifica ultimo bit em 1, p2 segundo bit em 1, p3 terceito bit em 1
 
 
-def _syndrome(cw: str) -> int:
+def _syndrome(cw: str) -> int: #recebe codeword possivelmente com erro e retorna numero
     if len(cw) != 7:
         raise ValueError("Codeword Hamming deve ter exatamente 7 bits.")
 
@@ -57,20 +60,20 @@ def _syndrome(cw: str) -> int:
 def _correct_block(cw: str, syn: int) -> str:
     if syn == 0:
         return cw
-    lst = list(cw)
-    idx = syn - 1
-    lst[idx] = "1" if lst[idx] == "0" else "0"
+    lst = list(cw) # converte a string cw em lista
+    idx = syn - 1 # sindrome de 1 a 7, menos 1 pra indexar na lista
+    lst[idx] = "1" if lst[idx] == "0" else "0" # troca o bit
     return "".join(lst)
 
 
 def _extract_data(cw: str) -> str:
-    return cw[2] + cw[4] + cw[5] + cw[6]
+    return cw[2] + cw[4] + cw[5] + cw[6] #2, 4, 5, 6 = posições dos dados d1, d2, d3, d4
 
-
+# --------------------------------------------------------------------------------------------------------------------
 def encode(bits: str) -> HammingEncodeResult:
     bits_clean, ascii_mapping = parse_binary_input(bits)
 
-    if len(bits_clean) % 4 != 0:
+    if len(bits_clean) % 4 != 0: # se nao for multiplo de 4, adiciona zeros no final para ficar
         pad = 4 - (len(bits_clean) % 4)
         bits_clean = bits_clean + "0" * pad
 
@@ -105,12 +108,12 @@ def decode(received: str) -> HammingDecodeResult:
     decoded_data_bits: List[str] = []
 
     for block in blocks:
-        syn = _syndrome(block)
-        corrected = _correct_block(block, syn)
+        syn = _syndrome(block) # pra cada bloco, chama a funçao que determina a sindrome
+        corrected = _correct_block(block, syn) # corrige o erro se existir
         syndromes.append(syn)
         error_positions.append(syn if syn != 0 else None)
         corrected_blocks.append(corrected)
-        decoded_data_bits.append(_extract_data(corrected))
+        decoded_data_bits.append(_extract_data(corrected)) #pega os 4 bits de dados
 
     corrected_codeword = " ".join(corrected_blocks)
     decoded_data = "".join(decoded_data_bits)
