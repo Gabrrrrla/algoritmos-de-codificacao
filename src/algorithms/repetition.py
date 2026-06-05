@@ -99,6 +99,18 @@ def decode(received: str, r: int = 3) -> RepetitionDecodeResult:
     )
 
 
+def _try_decode_ascii(bits: str) -> str:
+    if len(bits) % 8 != 0:
+        return ""
+    chars = []
+    for i in range(0, len(bits), 8):
+        val = int(bits[i : i + 8], 2)
+        if val < 32 or val > 126:
+            return ""
+        chars.append(chr(val))
+    return "".join(chars)
+
+
 def format_encode_result(result: RepetitionResult) -> str:
     lines = []
     if result.ascii_mapping:
@@ -117,11 +129,17 @@ def format_encode_result(result: RepetitionResult) -> str:
 
 
 def format_decode_result(result: RepetitionDecodeResult) -> str:
+    decoded = _try_decode_ascii(result.decoded_bits)
+    decoded_line = (
+        f"Bits decodificados: {result.decoded_bits} ({decoded})"
+        if decoded
+        else f"Bits decodificados: {result.decoded_bits}"
+    )
     lines = [
         f"Recebido          : {result.received}",
         f"Fator r           : {result.r}",
         f"Blocos            : {result.blocks}",
-        f"Bits decodificados: {result.decoded_bits}",
+        decoded_line,
         f"Erro detectado    : {'Sim' if result.error_detected else 'Não'}",
     ]
 

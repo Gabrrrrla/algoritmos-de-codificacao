@@ -21,10 +21,23 @@ class CRCEncodeResult:
 @dataclass
 class CRCCheckResult:
     received: str
+    original_message: str
     remainder: str
     error_detected: bool
     generator: str
     message: str
+
+
+def _try_decode_ascii(bits: str) -> str:
+    if len(bits) % 8 != 0:
+        return ""
+    chars = []
+    for i in range(0, len(bits), 8):
+        val = int(bits[i : i + 8], 2)
+        if val < 32 or val > 126:
+            return ""
+        chars.append(chr(val))
+    return "".join(chars)
 
 
 def _xor_divide(dividend: str, divisor: str) -> str:
@@ -72,6 +85,7 @@ def check(received: str, generator: str = GENERATOR) -> CRCCheckResult:
 
     return CRCCheckResult(
         received=received_clean,
+        original_message=received_clean[: -len(gen_clean) + 1],
         remainder=remainder,
         error_detected=error,
         generator=gen_clean,
@@ -97,8 +111,15 @@ def format_encode_result(result: CRCEncodeResult) -> str:
 
 
 def format_check_result(result: CRCCheckResult) -> str:
+    decoded = _try_decode_ascii(result.original_message)
+    original_line = (
+        f"Mensagem original : {result.original_message} ({decoded})\n"
+        if decoded
+        else f"Mensagem original : {result.original_message}\n"
+    )
     return (
         f"Recebido          : {result.received}\n"
+        + original_line +
         f"Polinômio gerador : {result.generator}\n"
         f"Resto (remainder) : {result.remainder}\n"
         f"Erro detectado    : {'Sim' if result.error_detected else 'Não'}\n"
