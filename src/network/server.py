@@ -34,7 +34,11 @@ def handle_request(request: dict) -> dict:
         if algo == "Repetição Ri":
             r = int(metadata.get("r", 3))
             result = repetition.decode(codeword, r=r)
-            error_pos = result.error_positions if result.error_positions else None
+            error_pos = [
+                f"bloco {i+1} pos {p}"
+                for i, p in enumerate(result.error_positions)
+                if p is not None
+            ] or None
             return {
                 "error_detected": result.error_detected,
                 "corrected_codeword": result.corrected_received,

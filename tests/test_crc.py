@@ -149,9 +149,9 @@ class TestValidation:
         with pytest.raises(ValueError):
             encode("")
 
-    def test_encode_non_binary_raises(self):
-        with pytest.raises(ValueError):
-            encode("abc")
+    def test_encode_non_binary_encodes_as_ascii(self):
+        result = encode("abc")
+        assert result.ascii_mapping
 
     def test_check_empty_raises(self):
         with pytest.raises(ValueError):

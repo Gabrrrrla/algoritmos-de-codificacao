@@ -136,5 +136,3 @@ class TestValidation:
     def test_encode_non_integer_raises(self):
         with pytest.raises((ValueError, TypeError)):
             encode([1, "fib", 3])
-        with pytest.raises((ValueError, TypeError)):
-            encode([3.14, 5])

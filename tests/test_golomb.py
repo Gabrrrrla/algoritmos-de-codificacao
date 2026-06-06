@@ -51,7 +51,7 @@ class TestEncodeSingle:
 
     def test_encode_m2(self):
         assert encode(1, m=2).encoded == "01"
-        assert encode(2, m=2).encoded == "10"
+        assert encode(2, m=2).encoded == "100"
 
     def test_result_fields(self):
         result = encode(5, m=4)

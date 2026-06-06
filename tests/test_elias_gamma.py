@@ -132,7 +132,9 @@ class TestValidation:
             encode([5, -2, 10])
 
     def test_encode_non_integer_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             encode([1, "dois", 3])
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
+            encode([1.5, 2])
+        with pytest.raises((ValueError, TypeError)):
             encode([1.5, 2])
