@@ -2,6 +2,23 @@
 
 Implementação em Python de algoritmos clássicos de codificação e tratamento de erros: **Golomb**, **Elias-Gamma**, **Fibonacci/Zeckendorf**, **Huffman**, **CRC-4**, **Hamming (7,4)** e **Código de Repetição**. Feito por Ana Beatriz Stahl, Emanuele Schlemmer Thomazzoni, Gabriela Bley Rodrigues e Luisa Becker dos Santos.
 
+## Sumário
+
+- [Descrição](#descrição)
+- [Instalação](#instalação)
+- [Uso](#uso)
+  - [Interface Gráfica (GUI)](#interface-gráfica-gui)
+  - [Interface de Linha de Comando (CLI)](#interface-de-linha-de-comando-cli)
+  - [Comunicação Cliente/Servidor (Socket)](#comunicação-clienteservidor-socket)
+  - [Exemplos de Uso Programático](#exemplos-de-uso-programático)
+- [Algoritmos Implementados](#algoritmos-implementados)
+  - [Algoritmos de Compressão e Codificação](#algoritmos-de-compressão-e-codificação)
+  - [Algoritmos de Detecção e Correção de Erros](#algoritmos-de-detecção-e-correção-de-erros)
+- [Estrutura do Projeto](#estrutura-do-projeto)
+- [Testes](#testes)
+- [Comparação de Algoritmos](#comparação-de-algoritmos)
+- [Referências](#referências)
+
 ## Descrição
 
 Este projeto fornece implementações completas e testadas de algoritmos de codificação e tratamento de erros, com **interface gráfica (GUI)**, **linha de comando (CLI)** e **comunicação cliente/servidor via socket** que permitem:
